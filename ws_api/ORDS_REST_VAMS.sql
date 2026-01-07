@@ -1359,6 +1359,557 @@ END;');
       p_access_method      => 'OUT',
       p_comments           => NULL);
 
+  -- ===================================================
+  -- ENDPOINT PUT Y DELETE PARA PROYECTOS INDIVIDUALES
+  -- ===================================================
+
+  ORDS.DEFINE_TEMPLATE(
+      p_module_name    => 'vams/',
+      p_pattern        => 'proyectos/:proyecto_id',
+      p_priority       => 0,
+      p_etag_type      => 'HASH',
+      p_etag_query     => NULL,
+      p_comments       => NULL);
+
+  ORDS.DEFINE_HANDLER(
+      p_module_name    => 'vams/',
+      p_pattern        => 'proyectos/:proyecto_id',
+      p_method         => 'PUT',
+      p_source_type    => 'plsql/block',
+      p_mimes_allowed  => NULL,
+      p_comments       => NULL,
+      p_source         => 
+'DECLARE
+  L_PO  BLOB := :body;
+  V_PROYECTO_ID NUMBER;
+  V_NOMBRE VARCHAR2(200);
+  V_DESCRIPCION VARCHAR2(500);
+  V_UBICACION VARCHAR2(200);
+  V_USER_ID NUMBER;
+  V_TOKEN VARCHAR2(32);
+BEGIN
+    -- Obtener proyecto_id del URI
+    V_PROYECTO_ID := :proyecto_id;
+    
+    -- Obtener token del header
+    V_TOKEN := :x_api_token;
+    
+    IF V_TOKEN IS NULL THEN
+        :success := ''false'';
+        :message := ''Token no proporcionado'';
+        RETURN;
+    END IF;
+    
+    -- Validar token
+    V_USER_ID := VMS_VALIDAR_TOKEN(V_TOKEN);
+    
+    IF V_USER_ID = 0 THEN
+        :success := ''false'';
+        :message := ''Token inválido o expirado'';
+        RETURN;
+    END IF;
+    
+    -- Extraer datos del JSON
+    SELECT 
+        jt.PR_NOMBRE,
+        jt.PR_DESCRIPCION,
+        jt.PR_UBICACION
+    INTO 
+        V_NOMBRE,
+        V_DESCRIPCION,
+        V_UBICACION
+    FROM JSON_TABLE(L_PO FORMAT JSON, ''$''
+             COLUMNS (
+               PR_NOMBRE VARCHAR2(200) PATH ''$.PR_NOMBRE'',
+               PR_DESCRIPCION VARCHAR2(500) PATH ''$.PR_DESCRIPCION'',
+               PR_UBICACION VARCHAR2(200) PATH ''$.PR_UBICACION''
+             )) jt;
+    
+    IF V_NOMBRE IS NULL OR TRIM(V_NOMBRE) = '''' THEN
+        :success := ''false'';
+        :message := ''El nombre del proyecto es requerido'';
+        RETURN;
+    END IF;
+    
+    -- Verificar que el proyecto existe
+    SELECT COUNT(*) INTO V_USER_ID
+    FROM VMS_PROYECTO 
+    WHERE PR_IDPROYECTO_PK = V_PROYECTO_ID
+      AND PR_ACTIVO = ''SI'';
+    
+    IF V_USER_ID = 0 THEN
+        :success := ''false'';
+        :message := ''Proyecto no encontrado'';
+        RETURN;
+    END IF;
+    
+    -- Actualizar proyecto
+    UPDATE VMS_PROYECTO
+    SET PR_NOMBRE = V_NOMBRE,
+        PR_DESCRIPCION = NULLIF(V_DESCRIPCION, ''''),
+        PR_UBICACION = NULLIF(V_UBICACION, ''''),
+        PR_MODIFICPOR = USER,
+        PR_MODIFICEN = SYSDATE
+    WHERE PR_IDPROYECTO_PK = V_PROYECTO_ID;
+    
+    COMMIT;
+    
+    :success := ''true'';
+    :message := ''Proyecto actualizado exitosamente'';
+
+EXCEPTION
+    WHEN OTHERS THEN
+        ROLLBACK;
+        :success := ''false'';
+        :message := ''Error al actualizar proyecto: '' || SUBSTR(SQLERRM, 1, 200);
+END;');
+
+  ORDS.DEFINE_HANDLER(
+      p_module_name    => 'vams/',
+      p_pattern        => 'proyectos/:proyecto_id',
+      p_method         => 'DELETE',
+      p_source_type    => 'plsql/block',
+      p_mimes_allowed  => NULL,
+      p_comments       => NULL,
+      p_source         => 
+'DECLARE
+  V_PROYECTO_ID NUMBER;
+  V_USER_ID NUMBER;
+  V_TOKEN VARCHAR2(32);
+BEGIN
+    -- Obtener proyecto_id del URI
+    V_PROYECTO_ID := :proyecto_id;
+    
+    -- Obtener token del header
+    V_TOKEN := :x_api_token;
+    
+    IF V_TOKEN IS NULL THEN
+        :success := ''false'';
+        :message := ''Token no proporcionado'';
+        RETURN;
+    END IF;
+    
+    -- Validar token
+    V_USER_ID := VMS_VALIDAR_TOKEN(V_TOKEN);
+    
+    IF V_USER_ID = 0 THEN
+        :success := ''false'';
+        :message := ''Token inválido o expirado'';
+        RETURN;
+    END IF;
+    
+    -- Verificar que el proyecto existe
+    SELECT COUNT(*) INTO V_USER_ID
+    FROM VMS_PROYECTO 
+    WHERE PR_IDPROYECTO_PK = V_PROYECTO_ID
+      AND PR_ACTIVO = ''SI'';
+    
+    IF V_USER_ID = 0 THEN
+        :success := ''false'';
+        :message := ''Proyecto no encontrado'';
+        RETURN;
+    END IF;
+    
+    -- Marcar proyecto como inactivo (soft delete)
+    UPDATE VMS_PROYECTO
+    SET PR_ACTIVO = ''NO'',
+        PR_MODIFICPOR = USER,
+        PR_MODIFICEN = SYSDATE
+    WHERE PR_IDPROYECTO_PK = V_PROYECTO_ID;
+    
+    COMMIT;
+    
+    :success := ''true'';
+    :message := ''Proyecto eliminado exitosamente'';
+
+EXCEPTION
+    WHEN OTHERS THEN
+        ROLLBACK;
+        :success := ''false'';
+        :message := ''Error al eliminar proyecto: '' || SUBSTR(SQLERRM, 1, 200);
+END;');
+
+  ORDS.DEFINE_PARAMETER(
+      p_module_name        => 'vams/',
+      p_pattern            => 'proyectos/:proyecto_id',
+      p_method             => 'PUT',
+      p_name               => 'X-API-Token',
+      p_bind_variable_name => 'x_api_token',
+      p_source_type        => 'HEADER',
+      p_param_type         => 'STRING',
+      p_access_method      => 'IN',
+      p_comments           => NULL);
+
+  ORDS.DEFINE_PARAMETER(
+      p_module_name        => 'vams/',
+      p_pattern            => 'proyectos/:proyecto_id',
+      p_method             => 'PUT',
+      p_name               => 'proyecto_id',
+      p_bind_variable_name => 'proyecto_id',
+      p_source_type        => 'URI',
+      p_param_type         => 'INT',
+      p_access_method      => 'IN',
+      p_comments           => NULL);
+
+  ORDS.DEFINE_PARAMETER(
+      p_module_name        => 'vams/',
+      p_pattern            => 'proyectos/:proyecto_id',
+      p_method             => 'PUT',
+      p_name               => 'success',
+      p_bind_variable_name => 'success',
+      p_source_type        => 'RESPONSE',
+      p_param_type         => 'STRING',
+      p_access_method      => 'OUT',
+      p_comments           => NULL);
+
+  ORDS.DEFINE_PARAMETER(
+      p_module_name        => 'vams/',
+      p_pattern            => 'proyectos/:proyecto_id',
+      p_method             => 'PUT',
+      p_name               => 'message',
+      p_bind_variable_name => 'message',
+      p_source_type        => 'RESPONSE',
+      p_param_type         => 'STRING',
+      p_access_method      => 'OUT',
+      p_comments           => NULL);
+
+  ORDS.DEFINE_PARAMETER(
+      p_module_name        => 'vams/',
+      p_pattern            => 'proyectos/:proyecto_id',
+      p_method             => 'DELETE',
+      p_name               => 'X-API-Token',
+      p_bind_variable_name => 'x_api_token',
+      p_source_type        => 'HEADER',
+      p_param_type         => 'STRING',
+      p_access_method      => 'IN',
+      p_comments           => NULL);
+
+  ORDS.DEFINE_PARAMETER(
+      p_module_name        => 'vams/',
+      p_pattern            => 'proyectos/:proyecto_id',
+      p_method             => 'DELETE',
+      p_name               => 'proyecto_id',
+      p_bind_variable_name => 'proyecto_id',
+      p_source_type        => 'URI',
+      p_param_type         => 'INT',
+      p_access_method      => 'IN',
+      p_comments           => NULL);
+
+  ORDS.DEFINE_PARAMETER(
+      p_module_name        => 'vams/',
+      p_pattern            => 'proyectos/:proyecto_id',
+      p_method             => 'DELETE',
+      p_name               => 'success',
+      p_bind_variable_name => 'success',
+      p_source_type        => 'RESPONSE',
+      p_param_type         => 'STRING',
+      p_access_method      => 'OUT',
+      p_comments           => NULL);
+
+  ORDS.DEFINE_PARAMETER(
+      p_module_name        => 'vams/',
+      p_pattern            => 'proyectos/:proyecto_id',
+      p_method             => 'DELETE',
+      p_name               => 'message',
+      p_bind_variable_name => 'message',
+      p_source_type        => 'RESPONSE',
+      p_param_type         => 'STRING',
+      p_access_method      => 'OUT',
+      p_comments           => NULL);
+
+  -- ===================================================
+  -- ENDPOINT PUT Y DELETE PARA CATEGORÍAS INDIVIDUALES
+  -- ===================================================
+
+  ORDS.DEFINE_TEMPLATE(
+      p_module_name    => 'vams/',
+      p_pattern        => 'proyectos/:proyecto_id/categorias/:categoria_id',
+      p_priority       => 0,
+      p_etag_type      => 'HASH',
+      p_etag_query     => NULL,
+      p_comments       => NULL);
+
+  ORDS.DEFINE_HANDLER(
+      p_module_name    => 'vams/',
+      p_pattern        => 'proyectos/:proyecto_id/categorias/:categoria_id',
+      p_method         => 'PUT',
+      p_source_type    => 'plsql/block',
+      p_mimes_allowed  => NULL,
+      p_comments       => NULL,
+      p_source         => 
+'DECLARE
+  L_PO  BLOB := :body;
+  V_PROYECTO_ID NUMBER;
+  V_CATEGORIA_ID NUMBER;
+  V_NOMBRE VARCHAR2(100);
+  V_DESCRIPCION VARCHAR2(500);
+  V_ICONO VARCHAR2(50);
+  V_USER_ID NUMBER;
+  V_TOKEN VARCHAR2(32);
+BEGIN
+    -- Obtener IDs del URI
+    V_PROYECTO_ID := :proyecto_id;
+    V_CATEGORIA_ID := :categoria_id;
+    
+    -- Obtener token del header
+    V_TOKEN := :x_api_token;
+    
+    IF V_TOKEN IS NULL THEN
+        :success := ''false'';
+        :message := ''Token no proporcionado'';
+        RETURN;
+    END IF;
+    
+    -- Validar token
+    V_USER_ID := VMS_VALIDAR_TOKEN(V_TOKEN);
+    
+    IF V_USER_ID = 0 THEN
+        :success := ''false'';
+        :message := ''Token inválido o expirado'';
+        RETURN;
+    END IF;
+    
+    -- Extraer datos del JSON
+    SELECT 
+        jt.CT_NOMBRE,
+        jt.CT_DESCRIPCION,
+        jt.CT_ICONO
+    INTO 
+        V_NOMBRE,
+        V_DESCRIPCION,
+        V_ICONO
+    FROM JSON_TABLE(L_PO FORMAT JSON, ''$''
+             COLUMNS (
+               CT_NOMBRE VARCHAR2(100) PATH ''$.CT_NOMBRE'',
+               CT_DESCRIPCION VARCHAR2(500) PATH ''$.CT_DESCRIPCION'',
+               CT_ICONO VARCHAR2(50) PATH ''$.CT_ICONO''
+             )) jt;
+    
+    IF V_NOMBRE IS NULL OR TRIM(V_NOMBRE) = '''' THEN
+        :success := ''false'';
+        :message := ''El nombre de la categoría es requerido'';
+        RETURN;
+    END IF;
+    
+    -- Si no se proporciona icono, usar uno por defecto
+    IF V_ICONO IS NULL OR TRIM(V_ICONO) = '''' THEN
+        V_ICONO := ''folder'';
+    END IF;
+    
+    -- Verificar que la categoría existe y pertenece al proyecto
+    SELECT COUNT(*) INTO V_USER_ID
+    FROM VMS_CATEGORIA 
+    WHERE CT_IDCATEGORIA_PK = V_CATEGORIA_ID
+      AND PR_IDPROYECTO_FK = V_PROYECTO_ID
+      AND CT_ACTIVO = ''SI'';
+    
+    IF V_USER_ID = 0 THEN
+        :success := ''false'';
+        :message := ''Categoría no encontrada o no pertenece al proyecto'';
+        RETURN;
+    END IF;
+    
+    -- Actualizar categoría
+    UPDATE VMS_CATEGORIA
+    SET CT_NOMBRE = V_NOMBRE,
+        CT_DESCRIPCION = NULLIF(V_DESCRIPCION, ''''),
+        CT_ICONO = V_ICONO,
+        CT_MODIFICPOR = USER,
+        CT_MODIFICEN = SYSDATE
+    WHERE CT_IDCATEGORIA_PK = V_CATEGORIA_ID
+      AND PR_IDPROYECTO_FK = V_PROYECTO_ID;
+    
+    COMMIT;
+    
+    :success := ''true'';
+    :message := ''Categoría actualizada exitosamente'';
+
+EXCEPTION
+    WHEN OTHERS THEN
+        ROLLBACK;
+        :success := ''false'';
+        :message := ''Error al actualizar categoría: '' || SUBSTR(SQLERRM, 1, 200);
+END;');
+
+  ORDS.DEFINE_HANDLER(
+      p_module_name    => 'vams/',
+      p_pattern        => 'proyectos/:proyecto_id/categorias/:categoria_id',
+      p_method         => 'DELETE',
+      p_source_type    => 'plsql/block',
+      p_mimes_allowed  => NULL,
+      p_comments       => NULL,
+      p_source         => 
+'DECLARE
+  V_PROYECTO_ID NUMBER;
+  V_CATEGORIA_ID NUMBER;
+  V_USER_ID NUMBER;
+  V_TOKEN VARCHAR2(32);
+BEGIN
+    -- Obtener IDs del URI
+    V_PROYECTO_ID := :proyecto_id;
+    V_CATEGORIA_ID := :categoria_id;
+    
+    -- Obtener token del header
+    V_TOKEN := :x_api_token;
+    
+    IF V_TOKEN IS NULL THEN
+        :success := ''false'';
+        :message := ''Token no proporcionado'';
+        RETURN;
+    END IF;
+    
+    -- Validar token
+    V_USER_ID := VMS_VALIDAR_TOKEN(V_TOKEN);
+    
+    IF V_USER_ID = 0 THEN
+        :success := ''false'';
+        :message := ''Token inválido o expirado'';
+        RETURN;
+    END IF;
+    
+    -- Verificar que la categoría existe y pertenece al proyecto
+    SELECT COUNT(*) INTO V_USER_ID
+    FROM VMS_CATEGORIA 
+    WHERE CT_IDCATEGORIA_PK = V_CATEGORIA_ID
+      AND PR_IDPROYECTO_FK = V_PROYECTO_ID
+      AND CT_ACTIVO = ''SI'';
+    
+    IF V_USER_ID = 0 THEN
+        :success := ''false'';
+        :message := ''Categoría no encontrada o no pertenece al proyecto'';
+        RETURN;
+    END IF;
+    
+    -- Marcar categoría como inactiva (soft delete)
+    UPDATE VMS_CATEGORIA
+    SET CT_ACTIVO = ''NO'',
+        CT_MODIFICPOR = USER,
+        CT_MODIFICEN = SYSDATE
+    WHERE CT_IDCATEGORIA_PK = V_CATEGORIA_ID
+      AND PR_IDPROYECTO_FK = V_PROYECTO_ID;
+    
+    COMMIT;
+    
+    :success := ''true'';
+    :message := ''Categoría eliminada exitosamente'';
+
+EXCEPTION
+    WHEN OTHERS THEN
+        ROLLBACK;
+        :success := ''false'';
+        :message := ''Error al eliminar categoría: '' || SUBSTR(SQLERRM, 1, 200);
+END;');
+
+  ORDS.DEFINE_PARAMETER(
+      p_module_name        => 'vams/',
+      p_pattern            => 'proyectos/:proyecto_id/categorias/:categoria_id',
+      p_method             => 'PUT',
+      p_name               => 'X-API-Token',
+      p_bind_variable_name => 'x_api_token',
+      p_source_type        => 'HEADER',
+      p_param_type         => 'STRING',
+      p_access_method      => 'IN',
+      p_comments           => NULL);
+
+  ORDS.DEFINE_PARAMETER(
+      p_module_name        => 'vams/',
+      p_pattern            => 'proyectos/:proyecto_id/categorias/:categoria_id',
+      p_method             => 'PUT',
+      p_name               => 'proyecto_id',
+      p_bind_variable_name => 'proyecto_id',
+      p_source_type        => 'URI',
+      p_param_type         => 'INT',
+      p_access_method      => 'IN',
+      p_comments           => NULL);
+
+  ORDS.DEFINE_PARAMETER(
+      p_module_name        => 'vams/',
+      p_pattern            => 'proyectos/:proyecto_id/categorias/:categoria_id',
+      p_method             => 'PUT',
+      p_name               => 'categoria_id',
+      p_bind_variable_name => 'categoria_id',
+      p_source_type        => 'URI',
+      p_param_type         => 'INT',
+      p_access_method      => 'IN',
+      p_comments           => NULL);
+
+  ORDS.DEFINE_PARAMETER(
+      p_module_name        => 'vams/',
+      p_pattern            => 'proyectos/:proyecto_id/categorias/:categoria_id',
+      p_method             => 'PUT',
+      p_name               => 'success',
+      p_bind_variable_name => 'success',
+      p_source_type        => 'RESPONSE',
+      p_param_type         => 'STRING',
+      p_access_method      => 'OUT',
+      p_comments           => NULL);
+
+  ORDS.DEFINE_PARAMETER(
+      p_module_name        => 'vams/',
+      p_pattern            => 'proyectos/:proyecto_id/categorias/:categoria_id',
+      p_method             => 'PUT',
+      p_name               => 'message',
+      p_bind_variable_name => 'message',
+      p_source_type        => 'RESPONSE',
+      p_param_type         => 'STRING',
+      p_access_method      => 'OUT',
+      p_comments           => NULL);
+
+  ORDS.DEFINE_PARAMETER(
+      p_module_name        => 'vams/',
+      p_pattern            => 'proyectos/:proyecto_id/categorias/:categoria_id',
+      p_method             => 'DELETE',
+      p_name               => 'X-API-Token',
+      p_bind_variable_name => 'x_api_token',
+      p_source_type        => 'HEADER',
+      p_param_type         => 'STRING',
+      p_access_method      => 'IN',
+      p_comments           => NULL);
+
+  ORDS.DEFINE_PARAMETER(
+      p_module_name        => 'vams/',
+      p_pattern            => 'proyectos/:proyecto_id/categorias/:categoria_id',
+      p_method             => 'DELETE',
+      p_name               => 'proyecto_id',
+      p_bind_variable_name => 'proyecto_id',
+      p_source_type        => 'URI',
+      p_param_type         => 'INT',
+      p_access_method      => 'IN',
+      p_comments           => NULL);
+
+  ORDS.DEFINE_PARAMETER(
+      p_module_name        => 'vams/',
+      p_pattern            => 'proyectos/:proyecto_id/categorias/:categoria_id',
+      p_method             => 'DELETE',
+      p_name               => 'categoria_id',
+      p_bind_variable_name => 'categoria_id',
+      p_source_type        => 'URI',
+      p_param_type         => 'INT',
+      p_access_method      => 'IN',
+      p_comments           => NULL);
+
+  ORDS.DEFINE_PARAMETER(
+      p_module_name        => 'vams/',
+      p_pattern            => 'proyectos/:proyecto_id/categorias/:categoria_id',
+      p_method             => 'DELETE',
+      p_name               => 'success',
+      p_bind_variable_name => 'success',
+      p_source_type        => 'RESPONSE',
+      p_param_type         => 'STRING',
+      p_access_method      => 'OUT',
+      p_comments           => NULL);
+
+  ORDS.DEFINE_PARAMETER(
+      p_module_name        => 'vams/',
+      p_pattern            => 'proyectos/:proyecto_id/categorias/:categoria_id',
+      p_method             => 'DELETE',
+      p_name               => 'message',
+      p_bind_variable_name => 'message',
+      p_source_type        => 'RESPONSE',
+      p_param_type         => 'STRING',
+      p_access_method      => 'OUT',
+      p_comments           => NULL);
+
     
         
 COMMIT;

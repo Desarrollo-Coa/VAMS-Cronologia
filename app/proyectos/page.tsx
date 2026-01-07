@@ -15,6 +15,7 @@ import { useEffect, useState } from "react"
 import { Project } from "@/lib/types"
 import Image from "next/image"
 import Link from "next/link"
+import { EditProjectModal } from "@/components/edit-project-modal"
 
 interface ProjectResumen extends Project {
   TOTAL_ACTIVOS?: number
@@ -28,6 +29,8 @@ export default function ProyectosPage() {
   const [error, setError] = useState<string | null>(null)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [editModalOpen, setEditModalOpen] = useState(false)
+  const [proyectoEditando, setProyectoEditando] = useState<ProjectResumen | null>(null)
   const [formData, setFormData] = useState({
     PR_NOMBRE: "",
     PR_DESCRIPCION: "",
@@ -247,8 +250,8 @@ export default function ProyectosPage() {
                           onClick={(e) => {
                             e.preventDefault()
                             e.stopPropagation()
-                            // TODO: Implementar edición de proyecto
-                            console.log('Editar proyecto:', project.PR_IDPROYECTO_PK)
+                            setProyectoEditando(project)
+                            setEditModalOpen(true)
                           }}
                         >
                           <Pencil className="w-4 h-4 text-slate-800" />
@@ -472,6 +475,14 @@ export default function ProyectosPage() {
           </DialogContent>
         </Dialog>
       </div>
+
+      {/* Modal de edición de proyecto */}
+      <EditProjectModal
+        open={editModalOpen}
+        onOpenChange={setEditModalOpen}
+        proyecto={proyectoEditando}
+        onSave={fetchProjects}
+      />
     </AuthGuard>
   )
 }

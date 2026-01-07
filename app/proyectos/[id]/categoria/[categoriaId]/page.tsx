@@ -69,6 +69,7 @@ export default function CategoriaDetailPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [añoSeleccionado, setAñoSeleccionado] = useState(new Date().getFullYear())
+  const [mesSeleccionado, setMesSeleccionado] = useState<number | null>(null)
   const [failedImages, setFailedImages] = useState<Set<string>>(new Set())
   const [slideshowOpen, setSlideshowOpen] = useState(false)
   const [slideshowIndex, setSlideshowIndex] = useState(0)
@@ -82,7 +83,7 @@ export default function CategoriaDetailPage() {
     fetchProyecto()
     fetchCategoria()
     fetchActivos()
-  }, [projectId, categoriaId, añoSeleccionado])
+  }, [projectId, categoriaId, añoSeleccionado, mesSeleccionado])
 
   const fetchProyecto = async () => {
     try {
@@ -140,7 +141,15 @@ export default function CategoriaDetailPage() {
 
   // Agrupar activos por día
   const activosPorDia: ActivosPorDia[] = activos
-    .filter((activo) => activo.AV_FECHA_CAPTURA)
+    .filter((activo) => {
+      if (!activo.AV_FECHA_CAPTURA) return false
+      // Si hay un mes seleccionado, filtrar por ese mes
+      if (mesSeleccionado !== null) {
+        const fecha = new Date(activo.AV_FECHA_CAPTURA!)
+        return fecha.getMonth() + 1 === mesSeleccionado
+      }
+      return true
+    })
     .reduce((acc: ActivosPorDia[], activo) => {
       const fecha = new Date(activo.AV_FECHA_CAPTURA!)
       const dia = fecha.getDate()
@@ -290,6 +299,7 @@ export default function CategoriaDetailPage() {
                         {Array.from({ length: 12 }, (_, index) => {
                           const mesNumero = index + 1
                           const tieneFotos = mesesConFotos.includes(mesNumero)
+                          const estaSeleccionado = mesSeleccionado === mesNumero
                           
                           return (
                             <div 
@@ -297,22 +307,38 @@ export default function CategoriaDetailPage() {
                               className="flex flex-col items-center flex-shrink-0"
                               style={{ minWidth: '48px' }}
                             >
-                              <div
-                                className={`w-10 h-10 sm:w-12 sm:h-12 rounded-full border-4 bg-white flex items-center justify-center mb-2 ${
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (tieneFotos) {
+                                    // Si el mes ya está seleccionado, deseleccionarlo
+                                    setMesSeleccionado(estaSeleccionado ? null : mesNumero)
+                                  }
+                                }}
+                                disabled={!tieneFotos}
+                                className={`w-10 h-10 sm:w-12 sm:h-12 rounded-full border-4 bg-white flex items-center justify-center mb-2 transition-all ${
                                   tieneFotos
-                                    ? "border-blue-500 bg-blue-50"
-                                    : "border-gray-300"
+                                    ? estaSeleccionado
+                                      ? "border-blue-600 bg-blue-100 shadow-lg cursor-pointer hover:scale-110"
+                                      : "border-blue-500 bg-blue-50 cursor-pointer hover:border-blue-600 hover:bg-blue-100 hover:scale-105"
+                                    : "border-gray-300 cursor-not-allowed opacity-50"
                                 }`}
                               >
                                 <span
                                   className={`text-xs font-bold ${
-                                    tieneFotos ? "text-blue-600" : "text-gray-400"
+                                    tieneFotos 
+                                      ? estaSeleccionado 
+                                        ? "text-blue-700" 
+                                        : "text-blue-600"
+                                      : "text-gray-400"
                                   }`}
                                 >
                                   {mesNumero}
                                 </span>
-                              </div>
-                              <span className="text-xs text-gray-600 text-center whitespace-nowrap">
+                              </button>
+                              <span className={`text-xs text-center whitespace-nowrap ${
+                                estaSeleccionado ? "text-blue-600 font-semibold" : "text-gray-600"
+                              }`}>
                                 {meses[index].substring(0, 3)}
                               </span>
                             </div>
@@ -332,7 +358,10 @@ export default function CategoriaDetailPage() {
               ) : activosPorDia.length === 0 ? (
                 <div className="p-6">
                   <p className="text-center text-gray-500">
-                    No hay fotos disponibles para el año {añoSeleccionado} en esta categoría.
+                    {mesSeleccionado 
+                      ? `No hay fotos disponibles para ${meses[mesSeleccionado - 1]} ${añoSeleccionado} en esta categoría.`
+                      : `No hay fotos disponibles para el año ${añoSeleccionado} en esta categoría.`
+                    }
                   </p>
                 </div>
               ) : (

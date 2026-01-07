@@ -14,6 +14,7 @@ import { ArrowLeft, Plus, Folder, Camera, Building, MapPin, Package, Pencil } fr
 import { useEffect, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import Link from "next/link"
+import { EditCategoriaModal } from "@/components/edit-categoria-modal"
 
 interface Proyecto {
   PR_IDPROYECTO_PK: number
@@ -55,6 +56,8 @@ export default function ProyectoDetailPage() {
   const [dialogOpen, setDialogOpen] = useState(false)
   const [isCreatingCategoria, setIsCreatingCategoria] = useState(false)
   const [nuevaCategoria, setNuevaCategoria] = useState({ nombre: '', descripcion: '', icono: 'folder' })
+  const [editCategoriaModalOpen, setEditCategoriaModalOpen] = useState(false)
+  const [categoriaEditando, setCategoriaEditando] = useState<Categoria | null>(null)
 
   useEffect(() => {
     fetchProyecto()
@@ -100,7 +103,6 @@ export default function ProyectoDetailPage() {
       setLoadingCategorias(false)
     }
   }
-
 
   const handleCreateCategoria = async () => {
     if (!nuevaCategoria.nombre.trim()) {
@@ -204,12 +206,12 @@ export default function ProyectoDetailPage() {
                       <span className="hidden sm:inline">Volver</span>
                     </Button>
                   </Link>
-                  <div className="flex-1 sm:flex-none">
-                    <h1 className="text-xl sm:text-2xl font-bold text-slate-900">
+                  <div className="flex-1 sm:flex-none min-w-0">
+                    <h1 className="text-xl sm:text-2xl font-bold text-slate-900 truncate">
                       {proyecto.PR_NOMBRE}
                     </h1>
                     {proyecto.PR_UBICACION && (
-                      <p className="text-xs sm:text-sm text-gray-600 line-clamp-1">{proyecto.PR_UBICACION}</p>
+                      <p className="text-xs sm:text-sm text-gray-600 truncate">{proyecto.PR_UBICACION}</p>
                     )}
                   </div>
                 </div>
@@ -221,7 +223,8 @@ export default function ProyectoDetailPage() {
                         size="sm"
                       >
                         <Plus className="w-4 h-4" />
-                        Crear Categoría
+                        <span className="hidden sm:inline">Crear Categoría</span>
+                        <span className="sm:hidden">Crear</span>
                       </Button>
                     </DialogTrigger>
                     <DialogContent>
@@ -319,18 +322,23 @@ export default function ProyectoDetailPage() {
               {/* Mostrar categorías */}
               <div>
                 <h2 className="text-lg sm:text-xl font-semibold text-slate-900 mb-3 sm:mb-4">Categorías</h2>
+                {error && (
+                  <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-4">
+                    {error}
+                  </div>
+                )}
                 {loadingCategorias ? (
                   <div className="flex items-center justify-center py-12">
                     <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-slate-800"></div>
-                  </div>
+                    </div>
                 ) : categorias.length === 0 ? (
                   <div className="bg-white rounded-lg border border-gray-200 p-6 sm:p-12 text-center">
                     <Folder className="w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-4 text-gray-400" />
                     <p className="text-sm sm:text-base text-gray-600 mb-2">No hay categorías disponibles</p>
                     <p className="text-xs sm:text-sm text-gray-500 mb-4">
-                      Crea una categoría al subir fotos para organizarlas
-                    </p>
-                  </div>
+                      Crea una categoría para organizar las fotos del proyecto
+                      </p>
+                    </div>
                 ) : (
                   <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
                     {categorias.map((categoria) => {
@@ -346,12 +354,12 @@ export default function ProyectoDetailPage() {
                             onClick={(e) => {
                               e.preventDefault()
                               e.stopPropagation()
-                              // TODO: Implementar edición de categoría
-                              console.log('Editar categoría:', categoria.CT_IDCATEGORIA_PK)
+                              setCategoriaEditando(categoria)
+                              setEditCategoriaModalOpen(true)
                             }}
                           >
                             <Pencil className="w-4 h-4 text-slate-800" />
-                          </Button>
+                      </Button>
                           <Link href={`/proyectos/${projectId}/categoria/${categoria.CT_IDCATEGORIA_PK}`}>
                             <Card
                               className="p-6 cursor-pointer hover:shadow-lg transition-shadow border-2 hover:border-blue-500"
@@ -374,7 +382,7 @@ export default function ProyectoDetailPage() {
                                 )}
                               </div>
                             </Card>
-                          </Link>
+                    </Link>
                         </div>
                       )
                     })}
@@ -387,6 +395,15 @@ export default function ProyectoDetailPage() {
 
         <Footer />
       </div>
+
+      {/* Modal de edición de categoría */}
+      <EditCategoriaModal
+        open={editCategoriaModalOpen}
+        onOpenChange={setEditCategoriaModalOpen}
+        categoria={categoriaEditando}
+        projectId={projectId}
+        onSave={fetchCategorias}
+      />
     </AuthGuard>
   )
 }

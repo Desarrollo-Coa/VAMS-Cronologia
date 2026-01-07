@@ -116,7 +116,7 @@ export function Header() {
                   className="sm:hidden text-white"
                 >
                   <LogOut className="h-4 w-4" />
-                </Button>
+          </Button>
               </>
             )}
           </div>

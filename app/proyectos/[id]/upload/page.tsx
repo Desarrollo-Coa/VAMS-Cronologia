@@ -19,6 +19,7 @@ interface FotoSeleccionada {
   file: File
   preview: string
   fechaCaptura: string
+  horaCaptura?: string // Hora en formato HH:MM:SS del EXIF
   nombre?: string
   descripcion?: string
   exifExtraido: boolean
@@ -100,8 +101,50 @@ export default function UploadPhotosPage() {
     }
   }
 
+  // Función auxiliar para convertir fecha EXIF a formato YYYY-MM-DD y hora HH:MM:SS sin problemas de zona horaria
+  const parsearFechaEXIF = (fechaEXIF: any): { fecha: string; hora?: string } | null => {
+    if (!fechaEXIF) return null
+
+    // Si es un string en formato EXIF "YYYY:MM:DD HH:MM:SS"
+    if (typeof fechaEXIF === 'string') {
+      // Formato EXIF típico: "2024:01:15 14:30:00"
+      const match = fechaEXIF.match(/^(\d{4}):(\d{2}):(\d{2})\s+(\d{2}):(\d{2}):(\d{2})$/)
+      if (match) {
+        const [, year, month, day, hour, minute, second] = match
+        return {
+          fecha: `${year}-${month}-${day}`,
+          hora: `${hour}:${minute}:${second}`
+        }
+      }
+      
+      // Si ya está en formato ISO o similar
+      if (fechaEXIF.includes('-')) {
+        const parts = fechaEXIF.split('T')
+        const fecha = parts[0]
+        const hora = parts[1] ? parts[1].split('.')[0].split('+')[0].split('Z')[0] : undefined
+        return { fecha, hora }
+      }
+    }
+
+    // Si es un objeto Date, extraer componentes localmente (sin conversión UTC)
+    if (fechaEXIF instanceof Date) {
+      const year = fechaEXIF.getFullYear()
+      const month = String(fechaEXIF.getMonth() + 1).padStart(2, '0')
+      const day = String(fechaEXIF.getDate()).padStart(2, '0')
+      const hour = String(fechaEXIF.getHours()).padStart(2, '0')
+      const minute = String(fechaEXIF.getMinutes()).padStart(2, '0')
+      const second = String(fechaEXIF.getSeconds()).padStart(2, '0')
+      return {
+        fecha: `${year}-${month}-${day}`,
+        hora: `${hour}:${minute}:${second}`
+      }
+    }
+
+    return null
+  }
+
   // Extraer fecha EXIF de una imagen
-  const extraerFechaEXIF = async (file: File): Promise<{ fecha: string; exifExtraido: boolean }> => {
+  const extraerFechaEXIF = async (file: File): Promise<{ fecha: string; horaCaptura?: string; exifExtraido: boolean }> => {
     try {
       let exifr: any = null
       try {
@@ -111,38 +154,73 @@ export default function UploadPhotosPage() {
       }
       
       if (exifr?.default) {
-        const exifData = await exifr.default.parse(file, { pick: ['DateTimeOriginal', 'CreateDate', 'ModifyDate'] })
+        // Extraer también la hora si está disponible
+        const exifData = await exifr.default.parse(file, { 
+          pick: ['DateTimeOriginal', 'CreateDate', 'ModifyDate', 'SubSecTimeOriginal'] 
+        })
         
+        // Intentar DateTimeOriginal primero (más confiable)
         if (exifData?.DateTimeOriginal) {
-          return {
-            fecha: new Date(exifData.DateTimeOriginal).toISOString().split('T')[0],
-            exifExtraido: true
+          const fechaHora = parsearFechaEXIF(exifData.DateTimeOriginal)
+          if (fechaHora) {
+            return {
+              fecha: fechaHora.fecha,
+              horaCaptura: fechaHora.hora,
+              exifExtraido: true
+            }
           }
         }
+        
+        // Intentar CreateDate
         if (exifData?.CreateDate) {
-          return {
-            fecha: new Date(exifData.CreateDate).toISOString().split('T')[0],
-            exifExtraido: true
+          const fechaHora = parsearFechaEXIF(exifData.CreateDate)
+          if (fechaHora) {
+            return {
+              fecha: fechaHora.fecha,
+              horaCaptura: fechaHora.hora,
+              exifExtraido: true
+            }
           }
         }
+        
+        // Intentar ModifyDate como último recurso
         if (exifData?.ModifyDate) {
-          return {
-            fecha: new Date(exifData.ModifyDate).toISOString().split('T')[0],
-            exifExtraido: true
+          const fechaHora = parsearFechaEXIF(exifData.ModifyDate)
+          if (fechaHora) {
+            return {
+              fecha: fechaHora.fecha,
+              horaCaptura: fechaHora.hora,
+              exifExtraido: true
+            }
           }
         }
       }
       
+      // Fallback: usar la fecha de modificación del archivo
       const fechaArchivo = new Date(file.lastModified)
+      const year = fechaArchivo.getFullYear()
+      const month = String(fechaArchivo.getMonth() + 1).padStart(2, '0')
+      const day = String(fechaArchivo.getDate()).padStart(2, '0')
+      const hour = String(fechaArchivo.getHours()).padStart(2, '0')
+      const minute = String(fechaArchivo.getMinutes()).padStart(2, '0')
+      const second = String(fechaArchivo.getSeconds()).padStart(2, '0')
       return {
-        fecha: fechaArchivo.toISOString().split('T')[0],
+        fecha: `${year}-${month}-${day}`,
+        horaCaptura: `${hour}:${minute}:${second}`,
         exifExtraido: false
       }
     } catch (err) {
       console.error('Error extrayendo EXIF:', err)
       const fechaArchivo = new Date(file.lastModified)
+      const year = fechaArchivo.getFullYear()
+      const month = String(fechaArchivo.getMonth() + 1).padStart(2, '0')
+      const day = String(fechaArchivo.getDate()).padStart(2, '0')
+      const hour = String(fechaArchivo.getHours()).padStart(2, '0')
+      const minute = String(fechaArchivo.getMinutes()).padStart(2, '0')
+      const second = String(fechaArchivo.getSeconds()).padStart(2, '0')
       return {
-        fecha: fechaArchivo.toISOString().split('T')[0],
+        fecha: `${year}-${month}-${day}`,
+        horaCaptura: `${hour}:${minute}:${second}`,
         exifExtraido: false
       }
     }
@@ -168,12 +246,13 @@ export default function UploadPhotosPage() {
       }
 
       const preview = URL.createObjectURL(file)
-      const { fecha, exifExtraido } = await extraerFechaEXIF(file)
+      const { fecha, horaCaptura, exifExtraido } = await extraerFechaEXIF(file)
 
       nuevasFotos.push({
         file,
         preview,
         fechaCaptura: fecha,
+        horaCaptura,
         nombre: file.name.replace(/\.[^/.]+$/, ""),
         exifExtraido,
       })
@@ -196,11 +275,19 @@ export default function UploadPhotosPage() {
     setIsDragging(false)
     handleFiles(e.dataTransfer.files)
   }
+  
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    handleFiles(e.target.files)
-    if (fileInputRef.current) {
-      fileInputRef.current.value = ''
+    const files = e.target.files
+    if (files && files.length > 0) {
+      // Guardar referencia al FileList antes de limpiar el input
+      const filesToProcess = files
+      // Limpiar el input primero para permitir seleccionar los mismos archivos de nuevo
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ''
+      }
+      // Procesar los archivos después de limpiar
+      handleFiles(filesToProcess)
     }
   }
 
@@ -248,11 +335,16 @@ export default function UploadPhotosPage() {
       const activosPromises = fotos.map(async (foto) => {
         const url = await uploadFileToStorage(foto.file, `proyectos/${projectId}/activos`)
 
+        // Combinar fecha y hora si la hora está disponible
+        const fechaCompleta = foto.horaCaptura 
+          ? `${foto.fechaCaptura} ${foto.horaCaptura}`
+          : foto.fechaCaptura
+
         const payload = {
           AV_NOMBRE: foto.nombre || foto.file.name,
           AV_DESCRIPCION: foto.descripcion || '',
           AV_URL: url,
-          AV_FECHA_CAPTURA: foto.fechaCaptura,
+          AV_FECHA_CAPTURA: fechaCompleta,
           AV_FILENAME: foto.file.name,
           AV_MIMETYPE: foto.file.type,
           AV_TAMANIO: foto.file.size,
@@ -491,6 +583,7 @@ export default function UploadPhotosPage() {
                       <p className="text-xs text-gray-500 mb-3">
                         O haz clic para seleccionar archivos
                       </p>
+                    
                       <p className="text-xs text-gray-400">
                         {fotos.length > 0 ? `${fotos.length} foto${fotos.length !== 1 ? 's' : ''} seleccionada${fotos.length !== 1 ? 's' : ''}` : 'Sin fotos seleccionadas'}
                       </p>
@@ -498,7 +591,7 @@ export default function UploadPhotosPage() {
                         ref={fileInputRef}
                         type="file"
                         accept="image/*"
-                        multiple
+                        multiple={true}
                         onChange={handleFileSelect}
                         className="hidden"
                         disabled={isUploading}
