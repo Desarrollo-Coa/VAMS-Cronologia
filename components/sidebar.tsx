@@ -2,16 +2,19 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Home, FolderOpen, ImageIcon, GitCompare, Upload, Settings } from "lucide-react"
+import { Home, FolderOpen } from "lucide-react"
+// Iconos comentados para futuras funcionalidades:
+// import { ImageIcon, GitCompare, Upload, Settings } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 const menuItems = [
   { icon: Home, label: "Inicio", href: "/" },
   { icon: FolderOpen, label: "Proyectos", href: "/proyectos" },
-  { icon: ImageIcon, label: "Activos Visuales", href: "/activos-visuales" },
-  { icon: GitCompare, label: "Comparaciones", href: "/comparaciones" },
-  { icon: Upload, label: "Cargas", href: "/cargas" },
-  { icon: Settings, label: "Configuración", href: "/configuracion" },
+  // Ocultas temporalmente hasta que se implementen las páginas
+  // { icon: ImageIcon, label: "Activos Visuales", href: "/activos-visuales" },
+  // { icon: GitCompare, label: "Comparaciones", href: "/comparaciones" },
+  // { icon: Upload, label: "Cargas", href: "/cargas" },
+  // { icon: Settings, label: "Configuración", href: "/configuracion" },
 ]
 
 interface SidebarProps {

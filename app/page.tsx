@@ -42,7 +42,7 @@ function HomePageContent() {
                 <div 
                   className="relative overflow-hidden p-4 sm:p-6 h-[250px] sm:h-[300px] flex flex-col justify-center flex-[6] rounded-lg md:rounded-l-lg md:rounded-r-none"
                   style={{
-                    backgroundImage: 'url(/green-bridge-river.jpg)',
+                    backgroundImage: 'url(/BANNER1.jpeg)',
                     backgroundSize: 'cover',
                     backgroundPosition: 'center',
                     backgroundRepeat: 'no-repeat',
@@ -82,7 +82,7 @@ function HomePageContent() {
                 <div 
                   className="relative overflow-hidden h-[200px] sm:h-[300px] flex-[3] rounded-lg md:rounded-r-lg md:rounded-l-none"
                   style={{
-                    backgroundImage: 'url(/apartment-buildings-exterior.jpg)',
+                    backgroundImage: 'url(/BANNER2.jpeg)',
                     backgroundSize: 'cover',
                     backgroundPosition: 'center',
                     backgroundRepeat: 'no-repeat',
