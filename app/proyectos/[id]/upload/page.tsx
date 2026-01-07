@@ -1,0 +1,537 @@
+"use client"
+
+import { Header } from "@/components/header"
+import { Footer } from "@/components/footer"
+import { Sidebar } from "@/components/sidebar"
+import { AuthGuard } from "@/components/auth-guard"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { ArrowLeft, Upload, Calendar, X, Folder, Camera, Building, MapPin, ImageIcon, Package } from "lucide-react"
+import { useState, useRef, useCallback, useEffect } from "react"
+import { useParams, useRouter } from "next/navigation"
+import Image from "next/image"
+import Link from "next/link"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { DroneIcon } from "@/components/drone-icon"
+
+interface FotoSeleccionada {
+  file: File
+  preview: string
+  fechaCaptura: string
+  nombre?: string
+  descripcion?: string
+  exifExtraido: boolean
+}
+
+interface Categoria {
+  CT_IDCATEGORIA_PK: number
+  PR_IDPROYECTO_FK: number
+  CT_NOMBRE: string
+  CT_DESCRIPCION?: string
+  CT_ICONO?: string
+  CT_COLOR?: string
+  CT_ORDEN?: number
+  CT_ACTIVO: string
+}
+
+const iconosDisponibles = [
+  { value: 'folder', label: 'Carpeta', icon: Folder },
+  { value: 'camera', label: 'Cámara', icon: Camera },
+  { value: 'building', label: 'Edificio', icon: Building },
+  { value: 'map-pin', label: 'Ubicación', icon: MapPin },
+  { value: 'image', label: 'Imagen', icon: ImageIcon },
+  { value: 'package', label: 'Paquete', icon: Package },
+  { value: 'drone', label: 'Dron', icon: DroneIcon },
+]
+
+export default function UploadPhotosPage() {
+  const params = useParams()
+  const router = useRouter()
+  const projectId = params.id as string
+
+  const [fotos, setFotos] = useState<FotoSeleccionada[]>([])
+  const [isDragging, setIsDragging] = useState(false)
+  const [isUploading, setIsUploading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [proyecto, setProyecto] = useState<any>(null)
+  const [categorias, setCategorias] = useState<Categoria[]>([])
+  const [categoriaSeleccionada, setCategoriaSeleccionada] = useState<number | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    fetchProyecto()
+    fetchCategorias()
+  }, [projectId])
+
+  const fetchProyecto = async () => {
+    try {
+      const response = await fetch(`/api/projects`, {
+        credentials: "include",
+      })
+      
+      if (!response.ok) throw new Error("Error al cargar proyecto")
+      
+      const data = await response.json()
+      const proyectoEncontrado = data.find((p: any) => p.PR_IDPROYECTO_PK === parseInt(projectId))
+      setProyecto(proyectoEncontrado)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Error desconocido")
+    }
+  }
+
+  const fetchCategorias = async () => {
+    try {
+      const response = await fetch(`/api/projects/${projectId}/categorias`, {
+        credentials: "include",
+      })
+      
+      if (!response.ok) throw new Error("Error al cargar categorías")
+      
+      const data = await response.json()
+      setCategorias(data)
+      
+      // Si hay categorías, seleccionar la primera por defecto
+      if (data.length > 0 && !categoriaSeleccionada) {
+        setCategoriaSeleccionada(data[0].CT_IDCATEGORIA_PK)
+      }
+    } catch (err) {
+      console.error('Error cargando categorías:', err)
+    }
+  }
+
+  // Extraer fecha EXIF de una imagen
+  const extraerFechaEXIF = async (file: File): Promise<{ fecha: string; exifExtraido: boolean }> => {
+    try {
+      let exifr: any = null
+      try {
+        exifr = await import('exifr')
+      } catch {
+        // exifr no está instalado, usar fallback
+      }
+      
+      if (exifr?.default) {
+        const exifData = await exifr.default.parse(file, { pick: ['DateTimeOriginal', 'CreateDate', 'ModifyDate'] })
+        
+        if (exifData?.DateTimeOriginal) {
+          return {
+            fecha: new Date(exifData.DateTimeOriginal).toISOString().split('T')[0],
+            exifExtraido: true
+          }
+        }
+        if (exifData?.CreateDate) {
+          return {
+            fecha: new Date(exifData.CreateDate).toISOString().split('T')[0],
+            exifExtraido: true
+          }
+        }
+        if (exifData?.ModifyDate) {
+          return {
+            fecha: new Date(exifData.ModifyDate).toISOString().split('T')[0],
+            exifExtraido: true
+          }
+        }
+      }
+      
+      const fechaArchivo = new Date(file.lastModified)
+      return {
+        fecha: fechaArchivo.toISOString().split('T')[0],
+        exifExtraido: false
+      }
+    } catch (err) {
+      console.error('Error extrayendo EXIF:', err)
+      const fechaArchivo = new Date(file.lastModified)
+      return {
+        fecha: fechaArchivo.toISOString().split('T')[0],
+        exifExtraido: false
+      }
+    }
+  }
+
+  const handleFiles = useCallback(async (files: FileList | null) => {
+    if (!files || files.length === 0) return
+
+    setError(null)
+    const nuevasFotos: FotoSeleccionada[] = []
+
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i]
+
+      if (!file.type.startsWith('image/')) {
+        setError(`El archivo ${file.name} no es una imagen válida`)
+        continue
+      }
+
+      if (file.size > 10 * 1024 * 1024) {
+        setError(`El archivo ${file.name} es demasiado grande. Máximo 10MB`)
+        continue
+      }
+
+      const preview = URL.createObjectURL(file)
+      const { fecha, exifExtraido } = await extraerFechaEXIF(file)
+
+      nuevasFotos.push({
+        file,
+        preview,
+        fechaCaptura: fecha,
+        nombre: file.name.replace(/\.[^/.]+$/, ""),
+        exifExtraido,
+      })
+    }
+
+    setFotos((prev) => [...prev, ...nuevasFotos])
+  }, [])
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault()
+    setIsDragging(true)
+  }
+
+  const handleDragLeave = () => {
+    setIsDragging(false)
+  }
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault()
+    setIsDragging(false)
+    handleFiles(e.dataTransfer.files)
+  }
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    handleFiles(e.target.files)
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ''
+    }
+  }
+
+  const removeFoto = (index: number) => {
+    setFotos((prev) => {
+      const nueva = [...prev]
+      URL.revokeObjectURL(nueva[index].preview)
+      nueva.splice(index, 1)
+      return nueva
+    })
+  }
+
+  const updateFoto = (index: number, updates: Partial<FotoSeleccionada>) => {
+    setFotos((prev) => {
+      const nueva = [...prev]
+      nueva[index] = { ...nueva[index], ...updates }
+      return nueva
+    })
+  }
+
+  const handleSave = async () => {
+    if (fotos.length === 0) {
+      setError("Debes seleccionar al menos una foto")
+      return
+    }
+
+    const fotosSinFecha = fotos.filter((f) => !f.fechaCaptura)
+    if (fotosSinFecha.length > 0) {
+      setError("Todas las fotos deben tener una fecha de captura")
+      return
+    }
+
+    try {
+      setIsUploading(true)
+      setError(null)
+
+      const { uploadFileToStorage } = await import('@/lib/firebase-client')
+
+      if (!categoriaSeleccionada) {
+        setError("Debes seleccionar una categoría antes de subir las fotos")
+        setIsUploading(false)
+        return
+      }
+
+      const activosPromises = fotos.map(async (foto) => {
+        const url = await uploadFileToStorage(foto.file, `proyectos/${projectId}/activos`)
+
+        const payload = {
+          AV_NOMBRE: foto.nombre || foto.file.name,
+          AV_DESCRIPCION: foto.descripcion || '',
+          AV_URL: url,
+          AV_FECHA_CAPTURA: foto.fechaCaptura,
+          AV_FILENAME: foto.file.name,
+          AV_MIMETYPE: foto.file.type,
+          AV_TAMANIO: foto.file.size,
+          CT_IDCATEGORIA_FK: categoriaSeleccionada,
+        }
+
+        console.log(`Guardando foto ${foto.file.name}:`, payload)
+
+        const response = await fetch(`/api/projects/${projectId}/activos`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          credentials: 'include',
+          body: JSON.stringify(payload),
+        })
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}))
+          console.error(`Error al guardar ${foto.file.name}:`, errorData)
+          throw new Error(errorData.error || errorData.message || `Error al guardar ${foto.file.name}`)
+        }
+
+        const result = await response.json()
+        console.log(`Foto ${foto.file.name} guardada exitosamente:`, result)
+        return result
+      })
+
+      await Promise.all(activosPromises)
+
+      fotos.forEach((foto) => URL.revokeObjectURL(foto.preview))
+      router.push(`/proyectos/${projectId}`)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Error al subir las fotos")
+      console.error('Error uploading photos:', err)
+    } finally {
+      setIsUploading(false)
+    }
+  }
+
+  return (
+    <AuthGuard>
+      <div className="min-h-screen flex flex-col bg-gray-50">
+        <Header />
+
+        <div className="flex flex-1">
+          <Sidebar />
+
+          <main className="flex-1 overflow-auto">
+            <div className="p-6">
+              {/* Header */}
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-4">
+                  <Link href={`/proyectos/${projectId}`}>
+                    <Button variant="outline" size="sm" className="gap-2">
+                      <ArrowLeft className="w-4 h-4" />
+                      Volver
+                    </Button>
+                  </Link>
+                  <div>
+                    <h1 className="text-2xl font-bold text-slate-900">
+                      Subir Fotos - {proyecto?.PR_NOMBRE || 'Cronología'}
+                    </h1>
+                  </div>
+                </div>
+              </div>
+
+              {/* Error */}
+              {error && (
+                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-6">
+                  {error}
+                </div>
+              )}
+
+              {/* Layout de dos columnas */}
+              <div className="grid grid-cols-1 lg:grid-cols-[1fr_400px] gap-6">
+                {/* Columna izquierda: Fotos con descripciones */}
+                <div className="space-y-4 max-h-[calc(100vh-200px)] overflow-y-auto pr-2">
+                  {fotos.length === 0 ? (
+                    <div className="bg-white rounded-lg border border-gray-200 p-12 text-center">
+                      <Upload className="w-16 h-16 mx-auto mb-4 text-gray-400" />
+                      <p className="text-gray-600 mb-2">No hay fotos seleccionadas</p>
+                      <p className="text-sm text-gray-500">Usa el panel derecho para agregar fotos</p>
+                    </div>
+                  ) : (
+                    fotos.map((foto, index) => (
+                      <div key={index} className="bg-white rounded-lg border border-gray-200 p-4">
+                        <div className="grid grid-cols-1 md:grid-cols-[200px_1fr] gap-4">
+                          {/* Preview de la foto - Izquierda */}
+                          <div className="relative">
+                            <div className="relative aspect-square rounded overflow-hidden bg-gray-100 border-2 border-gray-200">
+                              <Image
+                                src={foto.preview}
+                                alt={foto.nombre || `Foto ${index + 1}`}
+                                fill
+                                className="object-cover"
+                                unoptimized
+                              />
+                            </div>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => removeFoto(index)}
+                              disabled={isUploading}
+                              className="absolute top-2 right-2 bg-red-500 hover:bg-red-600 text-white p-1.5"
+                            >
+                              <X className="w-3 h-3" />
+                            </Button>
+                          </div>
+
+                          {/* Campos de información - Derecha */}
+                          <div className="space-y-3">
+                            <div>
+                              <Label htmlFor={`nombre-${index}`} className="text-xs text-gray-600 mb-1 block">
+                                Nombre
+                              </Label>
+                              <Input
+                                id={`nombre-${index}`}
+                                value={foto.nombre || ''}
+                                onChange={(e) => updateFoto(index, { nombre: e.target.value })}
+                                placeholder="Nombre de la foto"
+                                disabled={isUploading}
+                                className="text-sm h-9"
+                              />
+                            </div>
+
+                            <div>
+                              <Label htmlFor={`fecha-${index}`} className="text-xs text-gray-600 mb-1 block flex items-center gap-2">
+                                <Calendar className="w-3 h-3" />
+                                Fecha de Captura
+                                {foto.exifExtraido && (
+                                  <span className="text-xs text-green-600">(EXIF)</span>
+                                )}
+                              </Label>
+                              <Input
+                                id={`fecha-${index}`}
+                                type="date"
+                                value={foto.fechaCaptura}
+                                onChange={(e) => updateFoto(index, { fechaCaptura: e.target.value })}
+                                disabled={isUploading}
+                                className="text-sm h-9"
+                              />
+                            </div>
+
+                            <div>
+                              <Label htmlFor={`descripcion-${index}`} className="text-xs text-gray-600 mb-1 block">
+                                Descripción
+                              </Label>
+                              <Input
+                                id={`descripcion-${index}`}
+                                value={foto.descripcion || ''}
+                                onChange={(e) => updateFoto(index, { descripcion: e.target.value })}
+                                placeholder="Descripción de la foto"
+                                disabled={isUploading}
+                                className="text-sm h-9"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+
+                {/* Columna derecha: Área de subida y botón guardar */}
+                <div className="space-y-4">
+                  <div className="bg-white rounded-lg border border-gray-200 p-4 sticky top-4">
+                    {/* Selector de Categoría */}
+                    <div className="mb-4">
+                      <Label className="text-xs text-gray-600 mb-2 block">
+                        Categoría
+                      </Label>
+                      <Select
+                        value={categoriaSeleccionada?.toString() || ''}
+                        onValueChange={(value) => setCategoriaSeleccionada(parseInt(value))}
+                      >
+                        <SelectTrigger className="w-full">
+                          {categoriaSeleccionada ? (() => {
+                            const categoria = categorias.find(c => c.CT_IDCATEGORIA_PK === categoriaSeleccionada)
+                            if (!categoria) {
+                              return <SelectValue placeholder="Selecciona una categoría" />
+                            }
+                            const iconoData = iconosDisponibles.find(i => i.value === categoria.CT_ICONO) || iconosDisponibles[0]
+                            const IconComponent = iconoData.icon
+                            return (
+                              <>
+                                {categoria.CT_ICONO === 'drone' ? (
+                                  <DroneIcon className="w-4 h-4" />
+                                ) : (
+                                  <IconComponent className="w-4 h-4" />
+                                )}
+                                <SelectValue>{categoria.CT_NOMBRE}</SelectValue>
+                              </>
+                            )
+                          })() : <SelectValue placeholder="Selecciona una categoría" />}
+                        </SelectTrigger>
+                        <SelectContent>
+                          {categorias.map((cat) => {
+                            const iconoData = iconosDisponibles.find(i => i.value === cat.CT_ICONO) || iconosDisponibles[0]
+                            const IconComponent = iconoData.icon
+                            return (
+                              <SelectItem key={cat.CT_IDCATEGORIA_PK} value={cat.CT_IDCATEGORIA_PK.toString()}>
+                                <div className="flex items-center gap-2">
+                                  {cat.CT_ICONO === 'drone' ? (
+                                    <DroneIcon className="w-4 h-4" />
+                                  ) : (
+                                    <IconComponent className="w-4 h-4" />
+                                  )}
+                                  <span>{cat.CT_NOMBRE}</span>
+                                </div>
+                              </SelectItem>
+                            )
+                          })}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* Área de Drag & Drop */}
+                    <div
+                      onDragOver={handleDragOver}
+                      onDragLeave={handleDragLeave}
+                      onDrop={handleDrop}
+                      onClick={() => fileInputRef.current?.click()}
+                      className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors cursor-pointer ${
+                        isDragging
+                          ? "border-blue-500 bg-blue-50"
+                          : "border-gray-300 bg-gray-50 hover:bg-gray-100"
+                      }`}
+                    >
+                      <Upload className="w-12 h-12 mx-auto mb-3 text-gray-400" />
+                      <p className="text-sm text-gray-700 mb-1 font-medium">
+                        Arrastra y suelta las fotos aquí
+                      </p>
+                      <p className="text-xs text-gray-500 mb-3">
+                        O haz clic para seleccionar archivos
+                      </p>
+                      <p className="text-xs text-gray-400">
+                        {fotos.length > 0 ? `${fotos.length} foto${fotos.length !== 1 ? 's' : ''} seleccionada${fotos.length !== 1 ? 's' : ''}` : 'Sin fotos seleccionadas'}
+                      </p>
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        onChange={handleFileSelect}
+                        className="hidden"
+                        disabled={isUploading}
+                      />
+                    </div>
+
+                    {/* Botón de Guardar */}
+                    <div className="mt-6">
+                      <Button
+                        type="button"
+                        onClick={handleSave}
+                        disabled={isUploading || fotos.length === 0}
+                        className="w-full bg-slate-800 hover:bg-slate-700 text-white py-3 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {isUploading ? (
+                          <span className="flex items-center justify-center gap-2">
+                            <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                            Guardando fotos...
+                          </span>
+                        ) : (
+                          `Guardar ${fotos.length} Foto${fotos.length !== 1 ? 's' : ''}`
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </main>
+        </div>
+
+        <Footer />
+      </div>
+    </AuthGuard>
+  )
+}
+
