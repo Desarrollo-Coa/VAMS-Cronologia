@@ -74,9 +74,10 @@ BEGIN
         V_USER_USUARIO,
         V_ROL_ID,
         V_ROL_NOMBRE
-    FROM VMS_USUARIO u
-    LEFT JOIN VMS_ROL r ON u.RL_IDROL_FK = r.RL_IDROL_PK
-    WHERE UPPER(u.US_USUARIO) = UPPER(V_USERNAME)
+    FROM VMS_USUARIO u,
+         VMS_ROL r
+    WHERE u.RL_IDROL_FK = r.RL_IDROL_PK (+)
+      AND UPPER(u.US_USUARIO) = UPPER(V_USERNAME)
       AND u.US_CONTRASENA = (SELECT STANDARD_HASH(V_PASSWORD, ''MD5'') AS PWD FROM DUAL)
       AND u.US_ACTIVO = ''SI''
       AND ROWNUM = 1;
@@ -200,9 +201,10 @@ FROM (
             ''RL_IDROL_FK'' VALUE u.RL_IDROL_FK,
             ''RL_NOMBRE'' VALUE NVL(r.RL_NOMBRE, ''SIN_ROL'')
         )
-        FROM VMS_USUARIO u
-        LEFT JOIN VMS_ROL r ON u.RL_IDROL_FK = r.RL_IDROL_PK
-        WHERE UPPER(u.US_USUARIO) = UPPER(:username)
+        FROM VMS_USUARIO u,
+             VMS_ROL r
+        WHERE u.RL_IDROL_FK = r.RL_IDROL_PK (+)
+          AND UPPER(u.US_USUARIO) = UPPER(:username)
           AND u.US_CONTRASENA = STANDARD_HASH(:password, ''MD5'')
           AND u.US_ACTIVO = ''SI''
           AND ROWNUM = 1) AS V_USER_DATA
@@ -934,6 +936,7 @@ END;');
   V_NOMBRE VARCHAR2(200);
   V_DESCRIPCION VARCHAR2(1000);
   V_FECHA_CAPTURA DATE;
+  V_ACTIVO VARCHAR2(2);
   V_USER_ID NUMBER;
   V_TOKEN VARCHAR2(32);
   V_JSON_STRING CLOB;
@@ -967,13 +970,13 @@ BEGIN
     V_NOMBRE := JSON_VALUE(V_JSON_STRING, ''$.AV_NOMBRE'');
     V_DESCRIPCION := JSON_VALUE(V_JSON_STRING, ''$.AV_DESCRIPCION'');
     V_FECHA_CAPTURA := TO_DATE(JSON_VALUE(V_JSON_STRING, ''$.AV_FECHA_CAPTURA''), ''YYYY-MM-DD'');
+    V_ACTIVO := JSON_VALUE(V_JSON_STRING, ''$.AV_ACTIVO'');
     
     -- Verificar que el activo existe y pertenece al proyecto
     SELECT COUNT(*) INTO V_USER_ID
     FROM VMS_ACTIVO_VISUAL 
     WHERE AV_IDACTIVO_PK = V_ACTIVO_ID 
-      AND PR_IDPROYECTO_FK = V_PROYECTO_ID
-      AND AV_ACTIVO = ''SI'';
+      AND PR_IDPROYECTO_FK = V_PROYECTO_ID;
     
     IF V_USER_ID = 0 THEN
         :success := ''false'';
@@ -986,9 +989,7 @@ BEGIN
     SET AV_NOMBRE = NULLIF(V_NOMBRE, ''''),
         AV_DESCRIPCION = NULLIF(V_DESCRIPCION, ''''),
         AV_FECHA_CAPTURA = V_FECHA_CAPTURA,
-        AV_MODIFICPOR = USER,
-        AV_MODIFICEN = SYSDATE,
-        AV_LASTUPDATE = SYSDATE
+        AV_ACTIVO = NVL(V_ACTIVO, AV_ACTIVO)
     WHERE AV_IDACTIVO_PK = V_ACTIVO_ID
       AND PR_IDPROYECTO_FK = V_PROYECTO_ID;
     
@@ -1447,9 +1448,7 @@ BEGIN
     UPDATE VMS_PROYECTO
     SET PR_NOMBRE = V_NOMBRE,
         PR_DESCRIPCION = NULLIF(V_DESCRIPCION, ''''),
-        PR_UBICACION = NULLIF(V_UBICACION, ''''),
-        PR_MODIFICPOR = USER,
-        PR_MODIFICEN = SYSDATE
+        PR_UBICACION = NULLIF(V_UBICACION, '''')
     WHERE PR_IDPROYECTO_PK = V_PROYECTO_ID;
     
     COMMIT;
@@ -1512,9 +1511,7 @@ BEGIN
     
     -- Marcar proyecto como inactivo (soft delete)
     UPDATE VMS_PROYECTO
-    SET PR_ACTIVO = ''NO'',
-        PR_MODIFICPOR = USER,
-        PR_MODIFICEN = SYSDATE
+    SET PR_ACTIVO = ''NO''
     WHERE PR_IDPROYECTO_PK = V_PROYECTO_ID;
     
     COMMIT;
@@ -1713,9 +1710,7 @@ BEGIN
     UPDATE VMS_CATEGORIA
     SET CT_NOMBRE = V_NOMBRE,
         CT_DESCRIPCION = NULLIF(V_DESCRIPCION, ''''),
-        CT_ICONO = V_ICONO,
-        CT_MODIFICPOR = USER,
-        CT_MODIFICEN = SYSDATE
+        CT_ICONO = V_ICONO
     WHERE CT_IDCATEGORIA_PK = V_CATEGORIA_ID
       AND PR_IDPROYECTO_FK = V_PROYECTO_ID;
     
@@ -1782,9 +1777,7 @@ BEGIN
     
     -- Marcar categoría como inactiva (soft delete)
     UPDATE VMS_CATEGORIA
-    SET CT_ACTIVO = ''NO'',
-        CT_MODIFICPOR = USER,
-        CT_MODIFICEN = SYSDATE
+    SET CT_ACTIVO = ''NO''
     WHERE CT_IDCATEGORIA_PK = V_CATEGORIA_ID
       AND PR_IDPROYECTO_FK = V_PROYECTO_ID;
     
@@ -1902,6 +1895,125 @@ END;');
   ORDS.DEFINE_PARAMETER(
       p_module_name        => 'vams/',
       p_pattern            => 'proyectos/:proyecto_id/categorias/:categoria_id',
+      p_method             => 'DELETE',
+      p_name               => 'message',
+      p_bind_variable_name => 'message',
+      p_source_type        => 'RESPONSE',
+      p_param_type         => 'STRING',
+      p_access_method      => 'OUT',
+      p_comments           => NULL);
+
+  -- ===================================================
+  -- ENDPOINT DELETE SIMPLE PARA ACTIVOS (SOLO ID)
+  -- ===================================================
+
+  ORDS.DEFINE_TEMPLATE(
+      p_module_name    => 'vams/',
+      p_pattern        => 'activos/:activo_id',
+      p_priority       => 0,
+      p_etag_type      => 'HASH',
+      p_etag_query     => NULL,
+      p_comments       => NULL);
+
+  ORDS.DEFINE_HANDLER(
+      p_module_name    => 'vams/',
+      p_pattern        => 'activos/:activo_id',
+      p_method         => 'DELETE',
+      p_source_type    => 'plsql/block',
+      p_mimes_allowed  => NULL,
+      p_comments       => NULL,
+      p_source         => 
+'DECLARE
+  V_ACTIVO_ID NUMBER;
+  V_USER_ID NUMBER;
+  V_TOKEN VARCHAR2(32);
+BEGIN
+    -- Obtener activo_id del URI
+    V_ACTIVO_ID := :activo_id;
+    
+    -- Obtener token del header
+    V_TOKEN := :x_api_token;
+    
+    IF V_TOKEN IS NULL THEN
+        :success := ''false'';
+        :message := ''Token no proporcionado'';
+        RETURN;
+    END IF;
+    
+    -- Validar token
+    V_USER_ID := VMS_VALIDAR_TOKEN(V_TOKEN);
+    
+    IF V_USER_ID = 0 THEN
+        :success := ''false'';
+        :message := ''Token inválido o expirado'';
+        RETURN;
+    END IF;
+    
+    -- Verificar que el activo existe
+    SELECT COUNT(*) INTO V_USER_ID
+    FROM VMS_ACTIVO_VISUAL 
+    WHERE AV_IDACTIVO_PK = V_ACTIVO_ID
+      AND AV_ACTIVO = ''SI'';
+    
+    IF V_USER_ID = 0 THEN
+        :success := ''false'';
+        :message := ''Activo visual no encontrado'';
+        RETURN;
+    END IF;
+    
+    -- Marcar activo como inactivo (soft delete)
+    UPDATE VMS_ACTIVO_VISUAL
+    SET AV_ACTIVO = ''NO''
+    WHERE AV_IDACTIVO_PK = V_ACTIVO_ID;
+    
+    COMMIT;
+    
+    :success := ''true'';
+    :message := ''Activo visual eliminado exitosamente'';
+
+EXCEPTION
+    WHEN OTHERS THEN
+        ROLLBACK;
+        :success := ''false'';
+        :message := ''Error al eliminar activo visual: '' || SUBSTR(SQLERRM, 1, 200);
+END;');
+
+  ORDS.DEFINE_PARAMETER(
+      p_module_name        => 'vams/',
+      p_pattern            => 'activos/:activo_id',
+      p_method             => 'DELETE',
+      p_name               => 'X-API-Token',
+      p_bind_variable_name => 'x_api_token',
+      p_source_type        => 'HEADER',
+      p_param_type         => 'STRING',
+      p_access_method      => 'IN',
+      p_comments           => NULL);
+
+  ORDS.DEFINE_PARAMETER(
+      p_module_name        => 'vams/',
+      p_pattern            => 'activos/:activo_id',
+      p_method             => 'DELETE',
+      p_name               => 'activo_id',
+      p_bind_variable_name => 'activo_id',
+      p_source_type        => 'URI',
+      p_param_type         => 'INT',
+      p_access_method      => 'IN',
+      p_comments           => NULL);
+
+  ORDS.DEFINE_PARAMETER(
+      p_module_name        => 'vams/',
+      p_pattern            => 'activos/:activo_id',
+      p_method             => 'DELETE',
+      p_name               => 'success',
+      p_bind_variable_name => 'success',
+      p_source_type        => 'RESPONSE',
+      p_param_type         => 'STRING',
+      p_access_method      => 'OUT',
+      p_comments           => NULL);
+
+  ORDS.DEFINE_PARAMETER(
+      p_module_name        => 'vams/',
+      p_pattern            => 'activos/:activo_id',
       p_method             => 'DELETE',
       p_name               => 'message',
       p_bind_variable_name => 'message',

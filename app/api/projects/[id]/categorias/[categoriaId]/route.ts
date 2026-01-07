@@ -122,29 +122,64 @@ export async function DELETE(
     const cleanApiUrl = apiUrl.endsWith('/') ? apiUrl.slice(0, -1) : apiUrl
     const endpoint = `${cleanApiUrl}/proyectos/${projectId}/categorias/${categoriaIdNum}`
 
+    console.log('DELETE categoria:', { projectId, categoriaIdNum, endpoint })
+
     const response = await fetch(endpoint, {
       method: "DELETE",
       headers,
     })
 
+    console.log('ORDS DELETE response:', { status: response.status, statusText: response.statusText })
+
+    // Intentar obtener el cuerpo de la respuesta
+    let responseData: any = {}
+    let responseText = ""
+    try {
+      responseText = await response.text()
+      if (responseText) {
+        // Verificar si es HTML (error de ORDS)
+        if (responseText.trim().startsWith('<!DOCTYPE') || responseText.trim().startsWith('<html')) {
+          console.error("ORDS devolvió HTML en lugar de JSON:", responseText.substring(0, 500))
+          return NextResponse.json(
+            { error: "El endpoint DELETE no está disponible en el servidor. Por favor, ejecuta el script SQL actualizado." },
+            { status: 500 }
+          )
+        }
+        responseData = JSON.parse(responseText)
+      }
+    } catch (e) {
+      console.error("Error parsing response:", e, "Response text:", responseText.substring(0, 200))
+      // Si no es JSON, probablemente es HTML de error
+      if (responseText && (responseText.includes('<!DOCTYPE') || responseText.includes('<html'))) {
+        return NextResponse.json(
+          { error: "El endpoint DELETE no está disponible en el servidor. Por favor, ejecuta el script SQL actualizado." },
+          { status: 500 }
+        )
+      }
+    }
+
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}))
+      console.error("ORDS DELETE error:", {
+        status: response.status,
+        statusText: response.statusText,
+        data: responseData,
+        responseText: responseText.substring(0, 500)
+      })
       return NextResponse.json(
-        { error: errorData.message || errorData.error || "Error al eliminar la categoría" },
+        { error: responseData.message || responseData.error || "Error al eliminar la categoría" },
         { status: response.status }
       )
     }
 
-    const data = await response.json()
-
-    if (data.success === 'false') {
+    // Verificar si la respuesta indica éxito o error
+    if (responseData.success === 'false' || responseData.success === false) {
       return NextResponse.json(
-        { error: data.message || "Error al eliminar la categoría" },
+        { error: responseData.message || "Error al eliminar la categoría" },
         { status: 400 }
       )
     }
 
-    return NextResponse.json(data)
+    return NextResponse.json(responseData)
   } catch (error) {
     console.error("Error deleting categoria:", error)
     return NextResponse.json(

@@ -6,8 +6,9 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Calendar, Save, X } from "lucide-react"
+import { Calendar, Save, X, Trash2 } from "lucide-react"
 import Image from "next/image"
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
 
 interface ActivoVisual {
   AV_IDACTIVO_PK: number
@@ -38,7 +39,9 @@ export function EditPhotoModal({
   const [descripcion, setDescripcion] = useState("")
   const [fechaCaptura, setFechaCaptura] = useState<string>("")
   const [saving, setSaving] = useState(false)
+  const [deleting, setDeleting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
 
   useEffect(() => {
     if (activo && open) {
@@ -89,6 +92,33 @@ export function EditPhotoModal({
       setError(err instanceof Error ? err.message : "Error al guardar")
     } finally {
       setSaving(false)
+    }
+  }
+
+  const handleDelete = async () => {
+    if (!activo) return
+
+    try {
+      setDeleting(true)
+      setError(null)
+
+      const response = await fetch(`/api/projects/${projectId}/activos/${activo.AV_IDACTIVO_PK}`, {
+        method: "DELETE",
+        credentials: "include",
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.error || errorData.message || "Error al eliminar")
+      }
+
+      onSave()
+      onOpenChange(false)
+      setShowDeleteDialog(false)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Error al eliminar")
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -158,17 +188,49 @@ export function EditPhotoModal({
           </div>
         </div>
 
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
-            <X className="w-4 h-4 mr-2" />
-            Cancelar
+        <DialogFooter className="flex justify-between">
+          <Button
+            variant="destructive"
+            onClick={() => setShowDeleteDialog(true)}
+            disabled={saving || deleting}
+          >
+            <Trash2 className="w-4 h-4 mr-2" />
+            Eliminar
           </Button>
-          <Button onClick={handleSave} disabled={saving}>
-            <Save className="w-4 h-4 mr-2" />
-            {saving ? "Guardando..." : "Guardar"}
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving || deleting}>
+              <X className="w-4 h-4 mr-2" />
+              Cancelar
+            </Button>
+            <Button onClick={handleSave} disabled={saving || deleting}>
+              <Save className="w-4 h-4 mr-2" />
+              {saving ? "Guardando..." : "Guardar"}
+            </Button>
+          </div>
         </DialogFooter>
       </DialogContent>
+
+      {/* Dialog de confirmación de eliminación */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta acción no se puede deshacer. Se eliminará permanentemente la foto "{activo.AV_NOMBRE || 'sin nombre'}" y todos sus datos asociados.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              className="bg-red-600 hover:bg-red-700"
+              disabled={deleting}
+            >
+              {deleting ? "Eliminando..." : "Eliminar"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   )
 }
