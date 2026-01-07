@@ -910,6 +910,155 @@ END;');
       p_access_method      => 'OUT',
       p_comments           => NULL);
 
+  -- Handler PUT para actualizar activo visual
+  ORDS.DEFINE_TEMPLATE(
+      p_module_name    => 'vams/',
+      p_pattern        => 'proyectos/:proyecto_id/activos/:activo_id',
+      p_priority       => 0,
+      p_etag_type      => 'HASH',
+      p_etag_query     => NULL,
+      p_comments       => NULL);
+
+  ORDS.DEFINE_HANDLER(
+      p_module_name    => 'vams/',
+      p_pattern        => 'proyectos/:proyecto_id/activos/:activo_id',
+      p_method         => 'PUT',
+      p_source_type    => 'plsql/block',
+      p_mimes_allowed  => NULL,
+      p_comments       => NULL,
+      p_source         => 
+'DECLARE
+  L_PO  BLOB := :body;
+  V_PROYECTO_ID NUMBER;
+  V_ACTIVO_ID NUMBER;
+  V_NOMBRE VARCHAR2(200);
+  V_DESCRIPCION VARCHAR2(1000);
+  V_FECHA_CAPTURA DATE;
+  V_USER_ID NUMBER;
+  V_TOKEN VARCHAR2(32);
+  V_JSON_STRING CLOB;
+BEGIN
+    -- Obtener IDs del URI
+    V_PROYECTO_ID := :proyecto_id;
+    V_ACTIVO_ID := :activo_id;
+    
+    -- Obtener token del header
+    V_TOKEN := :x_api_token;
+    
+    IF V_TOKEN IS NULL THEN
+        :success := ''false'';
+        :message := ''Token no proporcionado'';
+        RETURN;
+    END IF;
+    
+    -- Validar token
+    V_USER_ID := VMS_VALIDAR_TOKEN(V_TOKEN);
+    
+    IF V_USER_ID = 0 THEN
+        :success := ''false'';
+        :message := ''Token inválido o expirado'';
+        RETURN;
+    END IF;
+    
+    -- Convertir BLOB a CLOB
+    V_JSON_STRING := UTL_RAW.CAST_TO_VARCHAR2(DBMS_LOB.SUBSTR(L_PO, DBMS_LOB.GETLENGTH(L_PO), 1));
+    
+    -- Parsear JSON
+    V_NOMBRE := JSON_VALUE(V_JSON_STRING, ''$.AV_NOMBRE'');
+    V_DESCRIPCION := JSON_VALUE(V_JSON_STRING, ''$.AV_DESCRIPCION'');
+    V_FECHA_CAPTURA := TO_DATE(JSON_VALUE(V_JSON_STRING, ''$.AV_FECHA_CAPTURA''), ''YYYY-MM-DD'');
+    
+    -- Verificar que el activo existe y pertenece al proyecto
+    SELECT COUNT(*) INTO V_USER_ID
+    FROM VMS_ACTIVO_VISUAL 
+    WHERE AV_IDACTIVO_PK = V_ACTIVO_ID 
+      AND PR_IDPROYECTO_FK = V_PROYECTO_ID
+      AND AV_ACTIVO = ''SI'';
+    
+    IF V_USER_ID = 0 THEN
+        :success := ''false'';
+        :message := ''Activo visual no encontrado o no pertenece al proyecto'';
+        RETURN;
+    END IF;
+    
+    -- Actualizar activo visual
+    UPDATE VMS_ACTIVO_VISUAL
+    SET AV_NOMBRE = NULLIF(V_NOMBRE, ''''),
+        AV_DESCRIPCION = NULLIF(V_DESCRIPCION, ''''),
+        AV_FECHA_CAPTURA = V_FECHA_CAPTURA,
+        AV_MODIFICPOR = USER,
+        AV_MODIFICEN = SYSDATE,
+        AV_LASTUPDATE = SYSDATE
+    WHERE AV_IDACTIVO_PK = V_ACTIVO_ID
+      AND PR_IDPROYECTO_FK = V_PROYECTO_ID;
+    
+    COMMIT;
+    
+    :success := ''true'';
+    :message := ''Activo visual actualizado exitosamente'';
+
+EXCEPTION
+    WHEN OTHERS THEN
+        ROLLBACK;
+        :success := ''false'';
+        :message := ''Error al actualizar activo visual: '' || SUBSTR(SQLERRM, 1, 200);
+END;');
+
+  ORDS.DEFINE_PARAMETER(
+      p_module_name        => 'vams/',
+      p_pattern            => 'proyectos/:proyecto_id/activos/:activo_id',
+      p_method             => 'PUT',
+      p_name               => 'X-API-Token',
+      p_bind_variable_name => 'x_api_token',
+      p_source_type        => 'HEADER',
+      p_param_type         => 'STRING',
+      p_access_method      => 'IN',
+      p_comments           => NULL);
+
+  ORDS.DEFINE_PARAMETER(
+      p_module_name        => 'vams/',
+      p_pattern            => 'proyectos/:proyecto_id/activos/:activo_id',
+      p_method             => 'PUT',
+      p_name               => 'proyecto_id',
+      p_bind_variable_name => 'proyecto_id',
+      p_source_type        => 'URI',
+      p_param_type         => 'INT',
+      p_access_method      => 'IN',
+      p_comments           => NULL);
+
+  ORDS.DEFINE_PARAMETER(
+      p_module_name        => 'vams/',
+      p_pattern            => 'proyectos/:proyecto_id/activos/:activo_id',
+      p_method             => 'PUT',
+      p_name               => 'activo_id',
+      p_bind_variable_name => 'activo_id',
+      p_source_type        => 'URI',
+      p_param_type         => 'INT',
+      p_access_method      => 'IN',
+      p_comments           => NULL);
+
+  ORDS.DEFINE_PARAMETER(
+      p_module_name        => 'vams/',
+      p_pattern            => 'proyectos/:proyecto_id/activos/:activo_id',
+      p_method             => 'PUT',
+      p_name               => 'success',
+      p_bind_variable_name => 'success',
+      p_source_type        => 'RESPONSE',
+      p_param_type         => 'STRING',
+      p_access_method      => 'OUT',
+      p_comments           => NULL);
+
+  ORDS.DEFINE_PARAMETER(
+      p_module_name        => 'vams/',
+      p_pattern            => 'proyectos/:proyecto_id/activos/:activo_id',
+      p_method             => 'PUT',
+      p_name               => 'message',
+      p_bind_variable_name => 'message',
+      p_source_type        => 'RESPONSE',
+      p_param_type         => 'STRING',
+      p_access_method      => 'OUT',
+      p_comments           => NULL);
+
   -- ===================================================
   -- ENDPOINTS DE CATEGORÍAS
   -- ===================================================

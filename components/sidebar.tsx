@@ -14,19 +14,23 @@ const menuItems = [
   { icon: Settings, label: "Configuración", href: "/configuracion" },
 ]
 
-export function Sidebar() {
+interface SidebarProps {
+  onItemClick?: () => void
+}
+
+export function Sidebar({ onItemClick }: SidebarProps) {
   const pathname = usePathname()
 
   return (
-    <aside className="w-52 bg-gray-50 border-r border-gray-200 flex flex-col py-6">
+    <aside className="hidden md:flex w-52 bg-gray-50 border-r border-gray-200 flex-col py-6">
       {menuItems.map((item) => {
         const Icon = item.icon
-        // Para la ruta "/", también considerar cuando pathname es exactamente "/"
         const isActive = pathname === item.href || (item.href === "/" && pathname === "/")
         return (
           <Link
             key={item.href}
             href={item.href}
+            onClick={onItemClick}
             className={cn(
               "flex items-center gap-3 px-4 py-3 text-sm transition-colors relative",
               isActive 
@@ -34,7 +38,7 @@ export function Sidebar() {
                 : "text-gray-600 hover:text-slate-800 hover:bg-gray-100",
             )}
           >
-            <Icon className="h-4 w-4 flex-shrink-0" />
+            <Icon className="h-5 w-5 flex-shrink-0" />
             <span className="truncate">{item.label}</span>
           </Link>
         )
@@ -42,3 +46,6 @@ export function Sidebar() {
     </aside>
   )
 }
+
+// Exportar menuItems para usar en el header
+export { menuItems }

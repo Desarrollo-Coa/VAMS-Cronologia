@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { DroneIcon } from "@/components/drone-icon"
-import { ArrowLeft, Plus, Folder, Camera, Building, MapPin, Package } from "lucide-react"
+import { ArrowLeft, Plus, Folder, Camera, Building, MapPin, Package, Pencil } from "lucide-react"
 import { useEffect, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import Link from "next/link"
@@ -196,24 +196,24 @@ export default function ProyectoDetailPage() {
           <main className="flex-1 overflow-auto">
             <div className="p-6">
               {/* Header */}
-              <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center gap-4">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0 mb-4 sm:mb-6">
+                <div className="flex items-center gap-2 sm:gap-4 w-full sm:w-auto">
                   <Link href="/proyectos">
                     <Button variant="outline" size="sm" className="gap-2">
                       <ArrowLeft className="w-4 h-4" />
-                      Volver
+                      <span className="hidden sm:inline">Volver</span>
                     </Button>
                   </Link>
-                  <div>
-                    <h1 className="text-2xl font-bold text-slate-900">
+                  <div className="flex-1 sm:flex-none">
+                    <h1 className="text-xl sm:text-2xl font-bold text-slate-900">
                       {proyecto.PR_NOMBRE}
                     </h1>
                     {proyecto.PR_UBICACION && (
-                      <p className="text-sm text-gray-600">{proyecto.PR_UBICACION}</p>
+                      <p className="text-xs sm:text-sm text-gray-600 line-clamp-1">{proyecto.PR_UBICACION}</p>
                     )}
                   </div>
                 </div>
-                <div>
+                <div className="flex items-center gap-2">
                   <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
                     <DialogTrigger asChild>
                       <Button
@@ -318,26 +318,41 @@ export default function ProyectoDetailPage() {
 
               {/* Mostrar categorías */}
               <div>
-                <h2 className="text-xl font-semibold text-slate-900 mb-4">Categorías</h2>
-                  {loadingCategorias ? (
-                    <div className="flex items-center justify-center py-12">
-                      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-slate-800"></div>
-                    </div>
-                  ) : categorias.length === 0 ? (
-                    <div className="bg-white rounded-lg border border-gray-200 p-12 text-center">
-                      <Folder className="w-16 h-16 mx-auto mb-4 text-gray-400" />
-                      <p className="text-gray-600 mb-2">No hay categorías disponibles</p>
-                      <p className="text-sm text-gray-500 mb-4">
-                        Crea una categoría al subir fotos para organizarlas
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                      {categorias.map((categoria) => {
-                        const iconoKey = categoria.CT_ICONO || 'folder'
-                        const IconComponent = iconosDisponibles[iconoKey] || Folder
-                        return (
-                          <Link key={categoria.CT_IDCATEGORIA_PK} href={`/proyectos/${projectId}/categoria/${categoria.CT_IDCATEGORIA_PK}`}>
+                <h2 className="text-lg sm:text-xl font-semibold text-slate-900 mb-3 sm:mb-4">Categorías</h2>
+                {loadingCategorias ? (
+                  <div className="flex items-center justify-center py-12">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-slate-800"></div>
+                  </div>
+                ) : categorias.length === 0 ? (
+                  <div className="bg-white rounded-lg border border-gray-200 p-6 sm:p-12 text-center">
+                    <Folder className="w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-4 text-gray-400" />
+                    <p className="text-sm sm:text-base text-gray-600 mb-2">No hay categorías disponibles</p>
+                    <p className="text-xs sm:text-sm text-gray-500 mb-4">
+                      Crea una categoría al subir fotos para organizarlas
+                    </p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
+                    {categorias.map((categoria) => {
+                      const iconoKey = categoria.CT_ICONO || 'folder'
+                      const IconComponent = iconosDisponibles[iconoKey] || Folder
+                      return (
+                        <div key={categoria.CT_IDCATEGORIA_PK} className="relative group">
+                          {/* Botón de edición */}
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="absolute top-2 right-2 z-10 bg-white/90 hover:bg-white shadow-md opacity-0 group-hover:opacity-100 transition-opacity"
+                            onClick={(e) => {
+                              e.preventDefault()
+                              e.stopPropagation()
+                              // TODO: Implementar edición de categoría
+                              console.log('Editar categoría:', categoria.CT_IDCATEGORIA_PK)
+                            }}
+                          >
+                            <Pencil className="w-4 h-4 text-slate-800" />
+                          </Button>
+                          <Link href={`/proyectos/${projectId}/categoria/${categoria.CT_IDCATEGORIA_PK}`}>
                             <Card
                               className="p-6 cursor-pointer hover:shadow-lg transition-shadow border-2 hover:border-blue-500"
                             >
@@ -360,10 +375,11 @@ export default function ProyectoDetailPage() {
                               </div>
                             </Card>
                           </Link>
-                        )
-                      })}
-                    </div>
-                  )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
               </div>
             </div>
           </main>

@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { FolderOpen, ImageIcon, Calendar, MapPin, Upload, X } from "lucide-react"
+import { FolderOpen, ImageIcon, Calendar, MapPin, Upload, X, Pencil } from "lucide-react"
 import { useEffect, useState } from "react"
 import { Project } from "@/lib/types"
 import Image from "next/image"
@@ -55,9 +55,9 @@ export default function ProyectosPage() {
       return
     }
 
-    // Validar tamaño (máximo 10MB)
-    if (file.size > 10 * 1024 * 1024) {
-      setError("El archivo es demasiado grande. Máximo 10MB")
+    // Validar tamaño (máximo 50MB)
+    if (file.size > 50 * 1024 * 1024) {
+      setError("El archivo es demasiado grande. Máximo 50MB")
       return
     }
 
@@ -197,17 +197,19 @@ export default function ProyectosPage() {
           <main className="flex-1 overflow-auto">
             <div className="p-6">
               {/* Header */}
-              <div className="flex items-center justify-between mb-6">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0 mb-4 sm:mb-6">
                 <div className="flex items-center gap-2">
-                  <FolderOpen className="w-6 h-6 text-slate-800" />
-                  <h1 className="text-2xl font-bold text-slate-900">Proyectos</h1>
+                  <FolderOpen className="w-5 h-5 sm:w-6 sm:h-6 text-slate-800" />
+                  <h1 className="text-xl sm:text-2xl font-bold text-slate-900">Proyectos</h1>
                 </div>
-                <Button 
-                  className="bg-slate-800 hover:bg-slate-700 text-white"
-                  onClick={() => setIsDialogOpen(true)}
-                >
-                  Nuevo Proyecto
-                </Button>
+                <div className="flex items-center gap-2 w-full sm:w-auto">
+                  <Button 
+                    className="bg-slate-800 hover:bg-slate-700 text-white w-full sm:w-auto text-sm sm:text-base"
+                    onClick={() => setIsDialogOpen(true)}
+                  >
+                    Nuevo Proyecto
+                  </Button>
+                </div>
               </div>
 
               {/* Loading State */}
@@ -226,7 +228,7 @@ export default function ProyectosPage() {
 
               {/* Projects Grid */}
               {!loading && !error && (
-                <div className="grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
                   {projects.length === 0 ? (
                     <div className="col-span-full text-center py-12 text-gray-500">
                       No hay proyectos disponibles
@@ -235,8 +237,22 @@ export default function ProyectosPage() {
                     projects.map((project, index) => (
                       <Card 
                         key={project.PR_IDPROYECTO_PK || `project-${index}`} 
-                        className="overflow-hidden hover:shadow-lg transition-shadow flex flex-col"
+                        className="overflow-hidden hover:shadow-lg transition-shadow flex flex-col relative group"
                       >
+                        {/* Botón de edición */}
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="absolute top-2 right-2 z-10 bg-white/90 hover:bg-white shadow-md opacity-0 group-hover:opacity-100 transition-opacity"
+                          onClick={(e) => {
+                            e.preventDefault()
+                            e.stopPropagation()
+                            // TODO: Implementar edición de proyecto
+                            console.log('Editar proyecto:', project.PR_IDPROYECTO_PK)
+                          }}
+                        >
+                          <Pencil className="w-4 h-4 text-slate-800" />
+                        </Button>
                         <Link href={`/proyectos/${project.PR_IDPROYECTO_PK}`} className="flex flex-col h-full">
                           {/* Project Image - Ocupa todo el ancho superior */}
                           {project.PR_FOTO_PORTADA_URL && !failedImages.has(project.PR_FOTO_PORTADA_URL) ? (

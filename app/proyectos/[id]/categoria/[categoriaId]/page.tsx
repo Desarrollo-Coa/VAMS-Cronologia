@@ -6,7 +6,10 @@ import { Sidebar } from "@/components/sidebar"
 import { AuthGuard } from "@/components/auth-guard"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { ArrowLeft, Calendar, Plus, ImageIcon } from "lucide-react"
+import { PhotoSlideshow } from "@/components/photo-slideshow"
+import { EditPhotoModal } from "@/components/edit-photo-modal"
+import { ComparePhotosModal } from "@/components/compare-photos-modal"
+import { ArrowLeft, Calendar, Plus, ImageIcon, Edit } from "lucide-react"
 import { useEffect, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import Image from "next/image"
@@ -67,6 +70,13 @@ export default function CategoriaDetailPage() {
   const [error, setError] = useState<string | null>(null)
   const [añoSeleccionado, setAñoSeleccionado] = useState(new Date().getFullYear())
   const [failedImages, setFailedImages] = useState<Set<string>>(new Set())
+  const [slideshowOpen, setSlideshowOpen] = useState(false)
+  const [slideshowIndex, setSlideshowIndex] = useState(0)
+  const [slideshowActivos, setSlideshowActivos] = useState<ActivoVisual[]>([])
+  const [editModalOpen, setEditModalOpen] = useState(false)
+  const [activoEditando, setActivoEditando] = useState<ActivoVisual | null>(null)
+  const [compareModalOpen, setCompareModalOpen] = useState(false)
+  const [activoComparando, setActivoComparando] = useState<ActivoVisual | null>(null)
 
   useEffect(() => {
     fetchProyecto()
@@ -169,6 +179,40 @@ export default function CategoriaDetailPage() {
     )
   )
 
+  const handleOpenSlideshow = (activo: ActivoVisual, grupo: ActivosPorDia) => {
+    setSlideshowActivos(grupo.activos)
+    const index = grupo.activos.findIndex((a) => a.AV_IDACTIVO_PK === activo.AV_IDACTIVO_PK)
+    setSlideshowIndex(index >= 0 ? index : 0)
+    setSlideshowOpen(true)
+  }
+
+  const handleEditPhoto = (activo: ActivoVisual) => {
+    setActivoEditando(activo)
+    setEditModalOpen(true)
+    setSlideshowOpen(false)
+  }
+
+  const handleComparePhoto = (activo: ActivoVisual) => {
+    setActivoComparando(activo)
+    setCompareModalOpen(true)
+    setSlideshowOpen(false)
+  }
+
+  const handleSaveEdit = () => {
+    fetchActivos()
+    setEditModalOpen(false)
+    setActivoEditando(null)
+  }
+
+  const handleEditDay = (grupo: ActivosPorDia) => {
+    // Abrir slideshow con todas las fotos del día para editar
+    if (grupo.activos.length > 0) {
+      setSlideshowActivos(grupo.activos)
+      setSlideshowIndex(0)
+      setSlideshowOpen(true)
+    }
+  }
+
   return (
     <AuthGuard>
       <div className="min-h-screen flex flex-col bg-gray-50">
@@ -178,37 +222,38 @@ export default function CategoriaDetailPage() {
           <main className="flex-1 overflow-auto">
             <div className="p-6">
               {/* Header */}
-              <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center gap-4">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0 mb-4 sm:mb-6">
+                <div className="flex items-center gap-2 sm:gap-4 w-full sm:w-auto">
                   <Link href={`/proyectos/${projectId}`}>
                     <Button variant="outline" size="sm" className="gap-2">
                       <ArrowLeft className="w-4 h-4" />
-                      Volver
+                      <span className="hidden sm:inline">Volver</span>
                     </Button>
                   </Link>
-                  <div>
-                    <h1 className="text-2xl font-bold text-slate-900">
+                  <div className="flex-1 sm:flex-none min-w-0">
+                    <h1 className="text-xl sm:text-2xl font-bold text-slate-900 truncate">
                       {categoria?.CT_NOMBRE || 'Categoría'}
                     </h1>
                     {proyecto?.PR_NOMBRE && (
-                      <p className="text-sm text-gray-600">{proyecto.PR_NOMBRE}</p>
+                      <p className="text-xs sm:text-sm text-gray-600 truncate">{proyecto.PR_NOMBRE}</p>
                     )}
                   </div>
                 </div>
-                <Link href={`/proyectos/${projectId}/upload?categoriaId=${categoriaId}`}>
+                <Link href={`/proyectos/${projectId}/upload?categoriaId=${categoriaId}`} className="w-full sm:w-auto">
                   <Button
-                    className="bg-slate-800 hover:bg-slate-700 text-white gap-2"
+                    className="bg-slate-800 hover:bg-slate-700 text-white gap-2 w-full sm:w-auto"
                     size="sm"
                   >
                     <Plus className="w-4 h-4" />
-                    Subir Fotos
+                    <span className="hidden sm:inline">Subir Fotos</span>
+                    <span className="sm:hidden">Subir</span>
                   </Button>
                 </Link>
               </div>
 
               {/* Timeline de Meses */}
-              <Card className="p-6 mb-6 bg-transparent border-0 shadow-none">
-                <div className="flex items-center gap-2 mb-6">
+              <Card className="p-4 sm:p-6 mb-6 bg-transparent border-0 shadow-none">
+                <div className="flex items-center gap-2 mb-4 sm:mb-6">
                   <h3 className="text-sm font-medium text-gray-600">
                     Cronología
                   </h3>
@@ -234,38 +279,47 @@ export default function CategoriaDetailPage() {
                 </div>
 
                 <div className="relative">
-                  {/* Línea del timeline */}
-                  <div className="absolute top-6 left-0 right-0 h-0.5 bg-gray-300 z-0" />
+                  {/* Contenedor con scroll horizontal en móvil */}
+                  <div className="overflow-x-auto overflow-y-visible -mx-4 sm:mx-0 px-4 sm:px-0">
+                    <div className="relative min-w-max sm:min-w-0">
+                      {/* Línea del timeline - solo visible en desktop */}
+                      <div className="hidden sm:block absolute top-6 left-0 right-0 h-0.5 bg-gray-300 z-0" />
 
-                  {/* Círculos de meses */}
-                  <div className="relative flex justify-between items-start z-10">
-                    {Array.from({ length: 12 }, (_, index) => {
-                      const mesNumero = index + 1
-                      const tieneFotos = mesesConFotos.includes(mesNumero)
-                      
-                      return (
-                        <div key={mesNumero} className="flex flex-col items-center flex-1">
-                          <div
-                            className={`w-12 h-12 rounded-full border-4 bg-white flex items-center justify-center mb-2 ${
-                              tieneFotos
-                                ? "border-blue-500 bg-blue-50"
-                                : "border-gray-300"
-                            }`}
-                          >
-                            <span
-                              className={`text-xs font-bold ${
-                                tieneFotos ? "text-blue-600" : "text-gray-400"
-                              }`}
+                      {/* Círculos de meses con scroll horizontal */}
+                      <div className="relative flex sm:justify-between items-start z-10 gap-3 sm:gap-0 min-w-[600px] sm:min-w-0">
+                        {Array.from({ length: 12 }, (_, index) => {
+                          const mesNumero = index + 1
+                          const tieneFotos = mesesConFotos.includes(mesNumero)
+                          
+                          return (
+                            <div 
+                              key={mesNumero} 
+                              className="flex flex-col items-center flex-shrink-0"
+                              style={{ minWidth: '48px' }}
                             >
-                              {mesNumero}
-                            </span>
-                          </div>
-                          <span className="text-xs text-gray-600 text-center">
-                            {meses[index].substring(0, 3)}
-                          </span>
-                        </div>
-                      )
-                    })}
+                              <div
+                                className={`w-10 h-10 sm:w-12 sm:h-12 rounded-full border-4 bg-white flex items-center justify-center mb-2 ${
+                                  tieneFotos
+                                    ? "border-blue-500 bg-blue-50"
+                                    : "border-gray-300"
+                                }`}
+                              >
+                                <span
+                                  className={`text-xs font-bold ${
+                                    tieneFotos ? "text-blue-600" : "text-gray-400"
+                                  }`}
+                                >
+                                  {mesNumero}
+                                </span>
+                              </div>
+                              <span className="text-xs text-gray-600 text-center whitespace-nowrap">
+                                {meses[index].substring(0, 3)}
+                              </span>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
                   </div>
                 </div>
               </Card>
@@ -285,15 +339,29 @@ export default function CategoriaDetailPage() {
                 <div className="space-y-8">
                   {activosPorDia.map((grupo) => (
                     <div key={grupo.fecha}>
-                      {/* Título del día */}
-                      <h2 className="text-lg font-bold text-slate-900 mb-4">
-                        {grupo.mesNombre} {grupo.dia}
-                      </h2>
+                      {/* Título del día con icono de editar */}
+                      <div className="flex items-center gap-2 mb-3 sm:mb-4">
+                        <h2 className="text-base sm:text-lg font-bold text-slate-900">
+                          {grupo.mesNombre} {grupo.dia}
+                        </h2>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleEditDay(grupo)}
+                          className="h-6 w-6 sm:h-7 sm:w-7 text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+                        >
+                          <Edit className="w-4 h-4" />
+                        </Button>
+                      </div>
 
                       {/* Grid de fotos */}
-                      <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
+                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2 sm:gap-3">
                         {grupo.activos.map((activo) => (
-                          <Card key={activo.AV_IDACTIVO_PK} className="overflow-hidden bg-white border border-gray-200 shadow-sm hover:shadow-md transition-shadow rounded-none">
+                          <Card 
+                            key={activo.AV_IDACTIVO_PK} 
+                            className="overflow-hidden bg-white border border-gray-200 shadow-sm hover:shadow-md transition-shadow rounded-none cursor-pointer"
+                            onClick={() => handleOpenSlideshow(activo, grupo)}
+                          >
                             {/* Imagen superior */}
                             <div className="relative w-full aspect-square bg-gray-100 overflow-hidden">
                               {!failedImages.has(activo.AV_URL) ? (
@@ -341,6 +409,33 @@ export default function CategoriaDetailPage() {
 
         <Footer />
       </div>
+
+      {/* Slideshow de fotos */}
+      <PhotoSlideshow
+        open={slideshowOpen}
+        onOpenChange={setSlideshowOpen}
+        activos={slideshowActivos}
+        initialIndex={slideshowIndex}
+        onEdit={handleEditPhoto}
+        onCompare={handleComparePhoto}
+      />
+
+      {/* Modal de edición */}
+      <EditPhotoModal
+        open={editModalOpen}
+        onOpenChange={setEditModalOpen}
+        activo={activoEditando}
+        projectId={projectId}
+        onSave={handleSaveEdit}
+      />
+
+      {/* Modal de comparación */}
+      <ComparePhotosModal
+        open={compareModalOpen}
+        onOpenChange={setCompareModalOpen}
+        activosPorDia={activosPorDia}
+        activoInicial={activoComparando}
+      />
     </AuthGuard>
   )
 }

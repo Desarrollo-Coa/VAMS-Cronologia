@@ -162,8 +162,8 @@ export default function UploadPhotosPage() {
         continue
       }
 
-      if (file.size > 10 * 1024 * 1024) {
-        setError(`El archivo ${file.name} es demasiado grande. Máximo 10MB`)
+      if (file.size > 50 * 1024 * 1024) {
+        setError(`El archivo ${file.name} es demasiado grande. Máximo 50MB`)
         continue
       }
 
@@ -304,17 +304,18 @@ export default function UploadPhotosPage() {
           <main className="flex-1 overflow-auto">
             <div className="p-6">
               {/* Header */}
-              <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center gap-4">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0 mb-4 sm:mb-6">
+                <div className="flex items-center gap-2 sm:gap-4 w-full sm:w-auto">
                   <Link href={`/proyectos/${projectId}`}>
                     <Button variant="outline" size="sm" className="gap-2">
                       <ArrowLeft className="w-4 h-4" />
-                      Volver
+                      <span className="hidden sm:inline">Volver</span>
                     </Button>
                   </Link>
-                  <div>
-                    <h1 className="text-2xl font-bold text-slate-900">
-                      Subir Fotos - {proyecto?.PR_NOMBRE || 'Cronología'}
+                  <div className="flex-1 sm:flex-none min-w-0">
+                    <h1 className="text-lg sm:text-xl md:text-2xl font-bold text-slate-900 truncate">
+                      <span className="hidden sm:inline">Subir Fotos - </span>
+                      {proyecto?.PR_NOMBRE || 'Cronología'}
                     </h1>
                   </div>
                 </div>
@@ -328,9 +329,9 @@ export default function UploadPhotosPage() {
               )}
 
               {/* Layout de dos columnas */}
-              <div className="grid grid-cols-1 lg:grid-cols-[1fr_400px] gap-6">
+              <div className="grid grid-cols-1 lg:grid-cols-[1fr_400px] gap-4 sm:gap-6">
                 {/* Columna izquierda: Fotos con descripciones */}
-                <div className="space-y-4 max-h-[calc(100vh-200px)] overflow-y-auto pr-2">
+                <div className="space-y-3 sm:space-y-4 max-h-[calc(100vh-200px)] overflow-y-auto pr-0 sm:pr-2">
                   {fotos.length === 0 ? (
                     <div className="bg-white rounded-lg border border-gray-200 p-12 text-center">
                       <Upload className="w-16 h-16 mx-auto mb-4 text-gray-400" />
@@ -339,8 +340,8 @@ export default function UploadPhotosPage() {
                     </div>
                   ) : (
                     fotos.map((foto, index) => (
-                      <div key={index} className="bg-white rounded-lg border border-gray-200 p-4">
-                        <div className="grid grid-cols-1 md:grid-cols-[200px_1fr] gap-4">
+                      <div key={index} className="bg-white rounded-lg border border-gray-200 p-3 sm:p-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-[150px_1fr] md:grid-cols-[200px_1fr] gap-3 sm:gap-4">
                           {/* Preview de la foto - Izquierda */}
                           <div className="relative">
                             <div className="relative aspect-square rounded overflow-hidden bg-gray-100 border-2 border-gray-200">
@@ -419,8 +420,8 @@ export default function UploadPhotosPage() {
                 </div>
 
                 {/* Columna derecha: Área de subida y botón guardar */}
-                <div className="space-y-4">
-                  <div className="bg-white rounded-lg border border-gray-200 p-4 sticky top-4">
+                <div className="space-y-3 sm:space-y-4">
+                  <div className="bg-white rounded-lg border border-gray-200 p-3 sm:p-4 lg:sticky lg:top-4">
                     {/* Selector de Categoría */}
                     <div className="mb-4">
                       <Label className="text-xs text-gray-600 mb-2 block">

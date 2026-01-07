@@ -97,9 +97,9 @@ export function UploadPhotosModal({ open, onOpenChange, projectId, onUploadCompl
         continue
       }
 
-      // Validar tamaño (máximo 10MB)
-      if (file.size > 10 * 1024 * 1024) {
-        setError(`El archivo ${file.name} es demasiado grande. Máximo 10MB`)
+      // Validar tamaño (máximo 50MB)
+      if (file.size > 50 * 1024 * 1024) {
+        setError(`El archivo ${file.name} es demasiado grande. Máximo 50MB`)
         continue
       }
 

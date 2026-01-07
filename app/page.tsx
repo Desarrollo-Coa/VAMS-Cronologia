@@ -36,11 +36,11 @@ function HomePageContent() {
         <main className="flex-1 overflow-auto">
         {/* Hero Section */}
           <section className="pt-4 pb-0">
-            <div className="px-4">
-              <div className="flex flex-col md:flex-row gap-4">
+            <div className="px-3 sm:px-4">
+              <div className="flex flex-col md:flex-row gap-3 sm:gap-4">
                 {/* Contenedor izquierdo: Texto con imagen de fondo y gradiente */}
                 <div 
-                  className="relative overflow-hidden p-6 h-[300px] flex flex-col justify-center flex-[6] rounded-l-sm md:rounded-r-none rounded-r-sm md:rounded-r-sm"
+                  className="relative overflow-hidden p-4 sm:p-6 h-[250px] sm:h-[300px] flex flex-col justify-center flex-[6] rounded-lg md:rounded-l-lg md:rounded-r-none"
                   style={{
                     backgroundImage: 'url(/green-bridge-river.jpg)',
                     backgroundSize: 'cover',
@@ -61,15 +61,15 @@ function HomePageContent() {
                     }}
                   />
                   {/* Contenido del texto sobre el gradiente */}
-                  <div className="relative z-10 text-white pl-8">
-                    <h1 className="text-3xl md:text-4xl font-bold mb-3 text-balance">Sistema de Gestión de Activos Visuales</h1>
-                    <h1 className="text-3xl md:text-4xl font-normal mb-2 text-slate-200">Captura la Evolución.</h1>
-                    <h1 className="text-3xl md:text-4xl font-normal mb-6 text-slate-200">Organiza el Cambio.</h1>
+                  <div className="relative z-10 text-white pl-4 sm:pl-8">
+                    <h1 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-bold mb-2 sm:mb-3 text-balance">Sistema de Gestión de Activos Visuales</h1>
+                    <h1 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-normal mb-1 sm:mb-2 text-slate-200">Captura la Evolución.</h1>
+                    <h1 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-normal mb-4 sm:mb-6 text-slate-200">Organiza el Cambio.</h1>
 
                     {mounted && (
                       <Button
                         size="lg"
-                        className="bg-orange-500 hover:bg-orange-600 text-white"
+                        className="bg-orange-500 hover:bg-orange-600 text-white text-sm sm:text-base w-full sm:w-auto"
                         onClick={handleEmpezarAhora}
                       >
                     EMPEZAR AHORA
@@ -80,7 +80,7 @@ function HomePageContent() {
 
                 {/* Contenedor derecho: Imagen de fondo individual */}
                 <div 
-                  className="relative overflow-hidden h-[300px] flex-[3] rounded-r-sm md:rounded-l-none rounded-l-sm md:rounded-l-sm"
+                  className="relative overflow-hidden h-[200px] sm:h-[300px] flex-[3] rounded-lg md:rounded-r-lg md:rounded-l-none"
                   style={{
                     backgroundImage: 'url(/apartment-buildings-exterior.jpg)',
                     backgroundSize: 'cover',
@@ -97,11 +97,11 @@ function HomePageContent() {
         </section>
 
         {/* Features Section */}
-          <section className="py-16 bg-white pl-[35px]">
+          <section className="py-8 sm:py-12 md:py-16 bg-white px-4 sm:pl-[35px]">
             <div className="px-2 pl-3">
-              <h2 className="text-2xl font-normal text-left mb-4 text-slate-900" style={{ fontFamily: 'system-ui, sans-serif', letterSpacing: '-0.02em' }}>PROCESOS REALIZADOS</h2>
+              <h2 className="text-xl sm:text-2xl font-normal text-left mb-3 sm:mb-4 text-slate-900" style={{ fontFamily: 'system-ui, sans-serif', letterSpacing: '-0.02em' }}>PROCESOS REALIZADOS</h2>
 
-              <div className="grid md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4">
                 <div className="flex flex-col items-center justify-center p-4 bg-gray-50 rounded-sm">
                   <div className="w-12 h-12 flex items-center justify-center mb-3">
                     <Camera className="w-6 h-6 text-slate-800" />
