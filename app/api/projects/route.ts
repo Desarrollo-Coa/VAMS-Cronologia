@@ -50,26 +50,63 @@ export async function GET(request: NextRequest) {
     }
 
     const data = await response.json()
+    console.log('Raw ORDS response:', {
+      type: typeof data,
+      isArray: Array.isArray(data),
+      keys: data && typeof data === 'object' ? Object.keys(data) : 'N/A',
+      dataPreview: Array.isArray(data) ? `Array[${data.length}]` : JSON.stringify(data).substring(0, 200)
+    })
     
-    // La nueva estructura devuelve { success, message, result_json }
-    if (!data.success) {
-      return NextResponse.json(
-        { error: data.message || "Error al obtener proyectos" },
-        { status: 401 }
-      )
-    }
-
-    // Parsear el JSON string que viene en result_json
+    // ORDS con json/query devuelve un objeto con estructura { items: [...], first: ... }
+    // Si el token no es válido o no hay resultados, puede devolver { items: [] }
     let projects: any[] = []
-    if (data.result_json) {
-      try {
-        projects = typeof data.result_json === 'string' 
-          ? JSON.parse(data.result_json) 
-          : data.result_json
-      } catch (e) {
-        console.error('Error parsing result_json:', e)
+    
+    if (Array.isArray(data)) {
+      // ORDS devolvió directamente el array (formato antiguo o caso especial)
+      projects = data
+      console.log('Projects received directly as array from ORDS:', projects.length, 'projects')
+    } else if (data && typeof data === 'object') {
+      // Verificar si tiene la estructura de json/query con items
+      if ('items' in data && Array.isArray(data.items)) {
+        // Formato json/query: { items: [...], first: ... }
+        projects = data.items
+        console.log('Projects received from ORDS json/query format:', projects.length, 'projects')
+      } else if (data.success !== undefined && data.message !== undefined) {
+        // Formato antiguo con { success, message, result_json }
+        console.log('ORDS Response (old format):', {
+          success: data.success,
+          message: data.message,
+          result_json_type: typeof data.result_json
+        })
+        
+        if (!data.success) {
+          return NextResponse.json(
+            { error: data.message || "Error al obtener proyectos" },
+            { status: 401 }
+          )
+        }
+
+        if (data.result_json) {
+          try {
+            const parsed = typeof data.result_json === 'string' 
+              ? JSON.parse(data.result_json) 
+              : data.result_json
+            projects = Array.isArray(parsed) ? parsed : []
+          } catch (e) {
+            console.error('Error parsing result_json:', e)
+            projects = []
+          }
+        }
+      } else {
+        // Objeto vacío o formato inesperado - tratar como array vacío
+        const keys = Object.keys(data)
+        console.log('ORDS returned unexpected object format:', 
+          keys.length === 0 ? 'empty object {}' : 'object with keys: ' + keys.join(', '))
         projects = []
       }
+    } else {
+      console.warn('Unexpected response format from ORDS:', typeof data)
+      projects = []
     }
     
     // ORDS devuelve los campos en minúsculas, transformarlos a mayúsculas para el frontend

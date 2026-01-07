@@ -339,64 +339,27 @@ END;');
       p_module_name    => 'vams/',
       p_pattern        => 'proyectos',
       p_method         => 'GET',
-      p_source_type    => 'plsql/block',
+      p_source_type    => 'json/query',
       p_mimes_allowed  => NULL,
       p_comments       => NULL,
       p_source         => 
-'DECLARE
-  V_TOKEN VARCHAR2(32);
-  V_USER_ID NUMBER;
-  V_RESULT_JSON CLOB;
-BEGIN
-    -- Obtener token del header
-    V_TOKEN := :x_api_token;
-    
-    IF V_TOKEN IS NULL THEN
-        :success := ''false'';
-        :message := ''Token no proporcionado'';
-        :result_json := NULL;
-        RETURN;
-    END IF;
-    
-    -- Validar token
-    V_USER_ID := VMS_VALIDAR_TOKEN(V_TOKEN);
-    
-    IF V_USER_ID = 0 THEN
-        :success := ''false'';
-        :message := ''Token inválido o expirado'';
-        :result_json := NULL;
-        RETURN;
-    END IF;
-    
-    -- Si el token es válido, devolver los proyectos
-    SELECT JSON_ARRAYAGG(
-        JSON_OBJECT(
-            ''PR_IDPROYECTO_PK'' VALUE PR_IDPROYECTO_PK,
-            ''PR_NOMBRE'' VALUE PR_NOMBRE,
-            ''PR_UBICACION'' VALUE PR_UBICACION,
-            ''PR_FOTO_PORTADA_URL'' VALUE PR_FOTO_PORTADA_URL,
-            ''PR_FECHA_INICIO'' VALUE TO_CHAR(PR_FECHA_INICIO, ''YYYY-MM-DD''),
-            ''PR_FECHA_FIN'' VALUE TO_CHAR(PR_FECHA_FIN, ''YYYY-MM-DD''),
-            ''PR_ACTIVO'' VALUE PR_ACTIVO,
-            ''TOTAL_ACTIVOS'' VALUE NVL(TOTAL_ACTIVOS, 0),
-            ''TOTAL_CATEGORIAS'' VALUE NVL(TOTAL_CATEGORIAS, 0),
-            ''ULTIMA_ACTUALIZACION'' VALUE TO_CHAR(ULTIMA_ACTUALIZACION, ''YYYY-MM-DD HH24:MI:SS'')
-        )
-    )
-    INTO V_RESULT_JSON
-    FROM V_PROYECTO_RESUMEN
-    ORDER BY PR_FECHA_INICIO DESC, PR_NOMBRE;
-    
-    :success := ''true'';
-    :message := ''OK'';
-    :result_json := V_RESULT_JSON;
-
-EXCEPTION
-    WHEN OTHERS THEN
-        :success := ''false'';
-        :message := ''Error al obtener proyectos: '' || SUBSTR(SQLERRM, 1, 200);
-        :result_json := NULL;
-END;');
+'SELECT 
+    PR_IDPROYECTO_PK,
+    PR_NOMBRE,
+    PR_UBICACION,
+    PR_FOTO_PORTADA_URL,
+    TO_CHAR(PR_FECHA_INICIO, ''YYYY-MM-DD'') AS PR_FECHA_INICIO,
+    TO_CHAR(PR_FECHA_FIN, ''YYYY-MM-DD'') AS PR_FECHA_FIN,
+    PR_ACTIVO,
+    NVL(TOTAL_ACTIVOS, 0) AS TOTAL_ACTIVOS,
+    NVL(TOTAL_CATEGORIAS, 0) AS TOTAL_CATEGORIAS,
+    NVL(TO_CHAR(ULTIMA_ACTUALIZACION, ''YYYY-MM-DD HH24:MI:SS''), '''') AS ULTIMA_ACTUALIZACION
+FROM V_PROYECTO_RESUMEN
+WHERE CASE 
+    WHEN :x_api_token IS NULL THEN 0
+    ELSE VMS_VALIDAR_TOKEN(:x_api_token)
+END > 0
+ORDER BY PR_FECHA_INICIO DESC NULLS LAST, PR_NOMBRE');
 
   ORDS.DEFINE_HANDLER(
       p_module_name    => 'vams/',
@@ -522,39 +485,6 @@ END;');
   ORDS.DEFINE_PARAMETER(
       p_module_name        => 'vams/',
       p_pattern            => 'proyectos',
-      p_method             => 'GET',
-      p_name               => 'success',
-      p_bind_variable_name => 'success',
-      p_source_type        => 'RESPONSE',
-      p_param_type         => 'STRING',
-      p_access_method      => 'OUT',
-      p_comments           => NULL);
-
-  ORDS.DEFINE_PARAMETER(
-      p_module_name        => 'vams/',
-      p_pattern            => 'proyectos',
-      p_method             => 'GET',
-      p_name               => 'message',
-      p_bind_variable_name => 'message',
-      p_source_type        => 'RESPONSE',
-      p_param_type         => 'STRING',
-      p_access_method      => 'OUT',
-      p_comments           => NULL);
-
-  ORDS.DEFINE_PARAMETER(
-      p_module_name        => 'vams/',
-      p_pattern            => 'proyectos',
-      p_method             => 'GET',
-      p_name               => 'result_json',
-      p_bind_variable_name => 'result_json',
-      p_source_type        => 'RESPONSE',
-      p_param_type         => 'STRING',
-      p_access_method      => 'OUT',
-      p_comments           => NULL);
-
-  ORDS.DEFINE_PARAMETER(
-      p_module_name        => 'vams/',
-      p_pattern            => 'proyectos',
       p_method             => 'POST',
       p_name               => 'proyecto_id',
       p_bind_variable_name => 'proyecto_id',
@@ -575,69 +505,28 @@ END;');
       p_module_name    => 'vams/',
       p_pattern        => 'proyectos/:proyecto_id/activos',
       p_method         => 'GET',
-      p_source_type    => 'plsql/block',
+      p_source_type    => 'json/query',
       p_mimes_allowed  => NULL,
       p_comments       => NULL,
       p_source         => 
-'DECLARE
-  V_TOKEN VARCHAR2(32);
-  V_USER_ID NUMBER;
-  V_PROYECTO_ID NUMBER;
-  V_RESULT_JSON CLOB;
-BEGIN
-    -- Obtener proyecto_id del URI
-    V_PROYECTO_ID := :proyecto_id;
-    
-    -- Obtener token del header
-    V_TOKEN := :x_api_token;
-    
-    IF V_TOKEN IS NULL THEN
-        :success := ''false'';
-        :message := ''Token no proporcionado'';
-        :result_json := NULL;
-        RETURN;
-    END IF;
-    
-    -- Validar token
-    V_USER_ID := VMS_VALIDAR_TOKEN(V_TOKEN);
-    
-    IF V_USER_ID = 0 THEN
-        :success := ''false'';
-        :message := ''Token inválido o expirado'';
-        :result_json := NULL;
-        RETURN;
-    END IF;
-    
-    -- Si el token es válido, devolver los activos
-    SELECT JSON_ARRAYAGG(
-        JSON_OBJECT(
-            ''av_idactivo_pk'' VALUE AV_IDACTIVO_PK,
-            ''pr_idproyecto_fk'' VALUE PR_IDPROYECTO_FK,
-            ''ct_idcategoria_fk'' VALUE CT_IDCATEGORIA_FK,
-            ''av_nombre'' VALUE AV_NOMBRE,
-            ''av_descripcion'' VALUE AV_DESCRIPCION,
-            ''av_url'' VALUE AV_URL,
-            ''av_fecha_captura'' VALUE TO_CHAR(AV_FECHA_CAPTURA, ''YYYY-MM-DD''),
-            ''av_fecha_carga'' VALUE TO_CHAR(AV_FECHA_CARGA, ''YYYY-MM-DD HH24:MI:SS'')
-        )
-    )
-    INTO V_RESULT_JSON
-    FROM VMS_ACTIVO_VISUAL
-    WHERE PR_IDPROYECTO_FK = V_PROYECTO_ID
-      AND AV_ACTIVO = ''SI''
-      AND AV_FECHA_CAPTURA IS NOT NULL
-    ORDER BY AV_FECHA_CAPTURA DESC, AV_FECHA_CARGA DESC;
-    
-    :success := ''true'';
-    :message := ''OK'';
-    :result_json := V_RESULT_JSON;
-
-EXCEPTION
-    WHEN OTHERS THEN
-        :success := ''false'';
-        :message := ''Error al obtener activos: '' || SUBSTR(SQLERRM, 1, 200);
-        :result_json := NULL;
-END;');
+'SELECT 
+    AV_IDACTIVO_PK AS av_idactivo_pk,
+    PR_IDPROYECTO_FK AS pr_idproyecto_fk,
+    CT_IDCATEGORIA_FK AS ct_idcategoria_fk,
+    AV_NOMBRE AS av_nombre,
+    AV_DESCRIPCION AS av_descripcion,
+    AV_URL AS av_url,
+    TO_CHAR(AV_FECHA_CAPTURA, ''YYYY-MM-DD'') AS av_fecha_captura,
+    TO_CHAR(AV_FECHA_CARGA, ''YYYY-MM-DD HH24:MI:SS'') AS av_fecha_carga
+FROM VMS_ACTIVO_VISUAL
+WHERE PR_IDPROYECTO_FK = :proyecto_id
+  AND AV_ACTIVO = ''SI''
+  AND AV_FECHA_CAPTURA IS NOT NULL
+  AND CASE 
+    WHEN :x_api_token IS NULL THEN 0
+    ELSE VMS_VALIDAR_TOKEN(:x_api_token)
+END > 0
+ORDER BY AV_FECHA_CAPTURA DESC, AV_FECHA_CARGA DESC');
 
   ORDS.DEFINE_PARAMETER(
       p_module_name        => 'vams/',
@@ -661,38 +550,6 @@ END;');
       p_access_method      => 'IN',
       p_comments           => NULL);
 
-  ORDS.DEFINE_PARAMETER(
-      p_module_name        => 'vams/',
-      p_pattern            => 'proyectos/:proyecto_id/activos',
-      p_method             => 'GET',
-      p_name               => 'success',
-      p_bind_variable_name => 'success',
-      p_source_type        => 'RESPONSE',
-      p_param_type         => 'STRING',
-      p_access_method      => 'OUT',
-      p_comments           => NULL);
-
-  ORDS.DEFINE_PARAMETER(
-      p_module_name        => 'vams/',
-      p_pattern            => 'proyectos/:proyecto_id/activos',
-      p_method             => 'GET',
-      p_name               => 'message',
-      p_bind_variable_name => 'message',
-      p_source_type        => 'RESPONSE',
-      p_param_type         => 'STRING',
-      p_access_method      => 'OUT',
-      p_comments           => NULL);
-
-  ORDS.DEFINE_PARAMETER(
-      p_module_name        => 'vams/',
-      p_pattern            => 'proyectos/:proyecto_id/activos',
-      p_method             => 'GET',
-      p_name               => 'result_json',
-      p_bind_variable_name => 'result_json',
-      p_source_type        => 'RESPONSE',
-      p_param_type         => 'STRING',
-      p_access_method      => 'OUT',
-      p_comments           => NULL);
 
   ORDS.DEFINE_HANDLER(
       p_module_name    => 'vams/',
@@ -735,7 +592,15 @@ BEGIN
         jt.AV_NOMBRE,
         jt.AV_DESCRIPCION,
         jt.AV_URL,
-        TO_DATE(jt.AV_FECHA_CAPTURA, ''YYYY-MM-DD''),
+        CASE 
+            WHEN jt.AV_FECHA_CAPTURA IS NULL THEN NULL
+            WHEN LENGTH(TRIM(jt.AV_FECHA_CAPTURA)) > 10 THEN
+                -- Formato con hora: YYYY-MM-DD HH:MM:SS o YYYY-MM-DD HH24:MI:SS
+                TO_DATE(TRIM(jt.AV_FECHA_CAPTURA), ''YYYY-MM-DD HH24:MI:SS'')
+            ELSE
+                -- Formato solo fecha: YYYY-MM-DD
+                TO_DATE(TRIM(jt.AV_FECHA_CAPTURA), ''YYYY-MM-DD'')
+        END,
         jt.AV_FILENAME,
         jt.AV_MIMETYPE,
         jt.AV_TAMANIO,
@@ -754,7 +619,7 @@ BEGIN
                AV_NOMBRE VARCHAR2(200) PATH ''$.AV_NOMBRE'',
                AV_DESCRIPCION VARCHAR2(1000) PATH ''$.AV_DESCRIPCION'',
                AV_URL VARCHAR2(500) PATH ''$.AV_URL'',
-               AV_FECHA_CAPTURA VARCHAR2(10) PATH ''$.AV_FECHA_CAPTURA'',
+               AV_FECHA_CAPTURA VARCHAR2(30) PATH ''$.AV_FECHA_CAPTURA'',
                AV_FILENAME VARCHAR2(256) PATH ''$.AV_FILENAME'',
                AV_MIMETYPE VARCHAR2(256) PATH ''$.AV_MIMETYPE'',
                AV_TAMANIO NUMBER PATH ''$.AV_TAMANIO'',
@@ -1076,68 +941,27 @@ END;');
       p_module_name    => 'vams/',
       p_pattern        => 'proyectos/:proyecto_id/categorias',
       p_method         => 'GET',
-      p_source_type    => 'plsql/block',
+      p_source_type    => 'json/query',
       p_mimes_allowed  => NULL,
       p_comments       => NULL,
       p_source         => 
-'DECLARE
-  V_TOKEN VARCHAR2(32);
-  V_USER_ID NUMBER;
-  V_PROYECTO_ID NUMBER;
-  V_RESULT_JSON CLOB;
-BEGIN
-    -- Obtener proyecto_id del URI
-    V_PROYECTO_ID := :proyecto_id;
-    
-    -- Obtener token del header
-    V_TOKEN := :x_api_token;
-    
-    IF V_TOKEN IS NULL THEN
-        :success := ''false'';
-        :message := ''Token no proporcionado'';
-        :result_json := NULL;
-        RETURN;
-    END IF;
-    
-    -- Validar token
-    V_USER_ID := VMS_VALIDAR_TOKEN(V_TOKEN);
-    
-    IF V_USER_ID = 0 THEN
-        :success := ''false'';
-        :message := ''Token inválido o expirado'';
-        :result_json := NULL;
-        RETURN;
-    END IF;
-    
-    -- Si el token es válido, devolver las categorías
-    SELECT JSON_ARRAYAGG(
-        JSON_OBJECT(
-            ''CT_IDCATEGORIA_PK'' VALUE CT_IDCATEGORIA_PK,
-            ''PR_IDPROYECTO_FK'' VALUE PR_IDPROYECTO_FK,
-            ''CT_NOMBRE'' VALUE CT_NOMBRE,
-            ''CT_DESCRIPCION'' VALUE CT_DESCRIPCION,
-            ''CT_ICONO'' VALUE CT_ICONO,
-            ''CT_COLOR'' VALUE CT_COLOR,
-            ''CT_ORDEN'' VALUE CT_ORDEN,
-            ''CT_ACTIVO'' VALUE CT_ACTIVO
-        )
-    )
-    INTO V_RESULT_JSON
-    FROM VMS_CATEGORIA
-    WHERE PR_IDPROYECTO_FK = V_PROYECTO_ID
-      AND CT_ACTIVO = ''SI''
-    ORDER BY CT_ORDEN, CT_NOMBRE;
-    
-    :success := ''true'';
-    :message := ''OK'';
-    :result_json := V_RESULT_JSON;
-
-EXCEPTION
-    WHEN OTHERS THEN
-        :success := ''false'';
-        :message := ''Error al obtener categorías: '' || SUBSTR(SQLERRM, 1, 200);
-        :result_json := NULL;
-END;');
+'SELECT 
+    CT_IDCATEGORIA_PK,
+    PR_IDPROYECTO_FK,
+    CT_NOMBRE,
+    CT_DESCRIPCION,
+    CT_ICONO,
+    CT_COLOR,
+    CT_ORDEN,
+    CT_ACTIVO
+FROM VMS_CATEGORIA
+WHERE PR_IDPROYECTO_FK = :proyecto_id
+  AND CT_ACTIVO = ''SI''
+  AND CASE 
+    WHEN :x_api_token IS NULL THEN 0
+    ELSE VMS_VALIDAR_TOKEN(:x_api_token)
+END > 0
+ORDER BY CT_ORDEN, CT_NOMBRE');
 
   ORDS.DEFINE_PARAMETER(
       p_module_name        => 'vams/',
@@ -1161,38 +985,6 @@ END;');
       p_access_method      => 'IN',
       p_comments           => NULL);
 
-  ORDS.DEFINE_PARAMETER(
-      p_module_name        => 'vams/',
-      p_pattern            => 'proyectos/:proyecto_id/categorias',
-      p_method             => 'GET',
-      p_name               => 'success',
-      p_bind_variable_name => 'success',
-      p_source_type        => 'RESPONSE',
-      p_param_type         => 'STRING',
-      p_access_method      => 'OUT',
-      p_comments           => NULL);
-
-  ORDS.DEFINE_PARAMETER(
-      p_module_name        => 'vams/',
-      p_pattern            => 'proyectos/:proyecto_id/categorias',
-      p_method             => 'GET',
-      p_name               => 'message',
-      p_bind_variable_name => 'message',
-      p_source_type        => 'RESPONSE',
-      p_param_type         => 'STRING',
-      p_access_method      => 'OUT',
-      p_comments           => NULL);
-
-  ORDS.DEFINE_PARAMETER(
-      p_module_name        => 'vams/',
-      p_pattern            => 'proyectos/:proyecto_id/categorias',
-      p_method             => 'GET',
-      p_name               => 'result_json',
-      p_bind_variable_name => 'result_json',
-      p_source_type        => 'RESPONSE',
-      p_param_type         => 'STRING',
-      p_access_method      => 'OUT',
-      p_comments           => NULL);
 
   ORDS.DEFINE_HANDLER(
       p_module_name    => 'vams/',

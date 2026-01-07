@@ -63,6 +63,18 @@ export default function UploadPhotosPage() {
   useEffect(() => {
     fetchProyecto()
     fetchCategorias()
+    
+    // Cargar categoriaId desde query string si existe
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search)
+      const categoriaIdParam = urlParams.get('categoriaId')
+      if (categoriaIdParam) {
+        const categoriaId = parseInt(categoriaIdParam)
+        if (!isNaN(categoriaId)) {
+          setCategoriaSeleccionada(categoriaId)
+        }
+      }
+    }
   }, [projectId])
 
   const fetchProyecto = async () => {
@@ -92,8 +104,22 @@ export default function UploadPhotosPage() {
       const data = await response.json()
       setCategorias(data)
       
-      // Si hay categorías, seleccionar la primera por defecto
+      // Si hay categorías y no hay una seleccionada, seleccionar la primera por defecto
+      // (a menos que ya se haya seleccionado una desde el query string)
       if (data.length > 0 && !categoriaSeleccionada) {
+        // Verificar si hay categoriaId en el query string
+        if (typeof window !== 'undefined') {
+          const urlParams = new URLSearchParams(window.location.search)
+          const categoriaIdParam = urlParams.get('categoriaId')
+          if (categoriaIdParam) {
+            const categoriaId = parseInt(categoriaIdParam)
+            if (!isNaN(categoriaId)) {
+              setCategoriaSeleccionada(categoriaId)
+              return
+            }
+          }
+        }
+        // Si no hay categoriaId en query string, usar la primera categoría
         setCategoriaSeleccionada(data[0].CT_IDCATEGORIA_PK)
       }
     } catch (err) {
@@ -226,14 +252,17 @@ export default function UploadPhotosPage() {
     }
   }
 
-  const handleFiles = useCallback(async (files: FileList | null) => {
+  const handleFiles = useCallback(async (files: FileList | File[] | null) => {
     if (!files || files.length === 0) return
 
     setError(null)
     const nuevasFotos: FotoSeleccionada[] = []
 
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i]
+    // Convertir FileList a Array si es necesario
+    const filesArray = Array.isArray(files) ? files : Array.from(files)
+
+    for (let i = 0; i < filesArray.length; i++) {
+      const file = filesArray[i]
 
       if (!file.type.startsWith('image/')) {
         setError(`El archivo ${file.name} no es una imagen válida`)
@@ -280,14 +309,17 @@ export default function UploadPhotosPage() {
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files
     if (files && files.length > 0) {
-      // Guardar referencia al FileList antes de limpiar el input
-      const filesToProcess = files
+      // Convertir FileList a Array ANTES de limpiar el input
+      // Esto evita que el FileList se vuelva inválido cuando se limpia el input
+      const filesArray = Array.from(files)
+      
       // Limpiar el input primero para permitir seleccionar los mismos archivos de nuevo
       if (fileInputRef.current) {
         fileInputRef.current.value = ''
       }
-      // Procesar los archivos después de limpiar
-      handleFiles(filesToProcess)
+      
+      // Procesar los archivos después de limpiar (ya están en un array, no dependen del input)
+      handleFiles(filesArray)
     }
   }
 
@@ -351,7 +383,12 @@ export default function UploadPhotosPage() {
           CT_IDCATEGORIA_FK: categoriaSeleccionada,
         }
 
-        console.log(`Guardando foto ${foto.file.name}:`, payload)
+        console.log(`Guardando foto ${foto.file.name}:`, {
+          ...payload,
+          AV_URL: payload.AV_URL ? `${payload.AV_URL.substring(0, 50)}...` : null,
+          AV_FECHA_CAPTURA_length: payload.AV_FECHA_CAPTURA?.length,
+          CT_IDCATEGORIA_FK: payload.CT_IDCATEGORIA_FK
+        })
 
         const response = await fetch(`/api/projects/${projectId}/activos`, {
           method: 'POST',
@@ -363,13 +400,29 @@ export default function UploadPhotosPage() {
         })
 
         if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}))
-          console.error(`Error al guardar ${foto.file.name}:`, errorData)
+          const errorText = await response.text()
+          console.error(`Error al guardar ${foto.file.name}:`, {
+            status: response.status,
+            statusText: response.statusText,
+            errorText: errorText.substring(0, 500)
+          })
+          
+          let errorData: any = {}
+          try {
+            errorData = JSON.parse(errorText)
+          } catch {
+            errorData = { error: errorText }
+          }
+          
           throw new Error(errorData.error || errorData.message || `Error al guardar ${foto.file.name}`)
         }
 
         const result = await response.json()
-        console.log(`Foto ${foto.file.name} guardada exitosamente:`, result)
+        console.log(`Foto ${foto.file.name} guardada exitosamente:`, {
+          success: result.success,
+          message: result.message,
+          activo_id: result.activo_id
+        })
         return result
       })
 

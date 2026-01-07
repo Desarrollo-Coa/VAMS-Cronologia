@@ -64,23 +64,50 @@ export async function GET(
 
     const data = await response.json()
     
-    // La nueva estructura devuelve { success, message, result_json }
-    if (!data.success) {
-      return NextResponse.json(
-        { error: data.message || "Error al obtener categorías" },
-        { status: 401 }
-      )
-    }
-
-    // Parsear el JSON string que viene en result_json
+    // Debug: agregar logs para diagnosticar
+    console.log('Raw ORDS categorias response:', {
+      type: typeof data,
+      isArray: Array.isArray(data),
+      keys: data && typeof data === 'object' ? Object.keys(data) : 'N/A',
+      dataPreview: Array.isArray(data) ? `Array[${data.length}]` : JSON.stringify(data).substring(0, 300),
+      hasItems: data && typeof data === 'object' && 'items' in data,
+      itemsLength: data && typeof data === 'object' && 'items' in data ? data.items?.length : 'N/A'
+    })
+    
+    // ORDS con json/query devuelve un objeto con estructura { items: [...], first: ... }
     let categorias: any[] = []
-    if (data.result_json) {
-      try {
-        categorias = typeof data.result_json === 'string' 
-          ? JSON.parse(data.result_json) 
-          : data.result_json
-      } catch (e) {
-        console.error('Error parsing result_json:', e)
+    
+    if (Array.isArray(data)) {
+      // ORDS devolvió directamente el array (formato antiguo o caso especial)
+      categorias = data
+    } else if (data && typeof data === 'object') {
+      // Verificar si tiene la estructura de json/query con items
+      if ('items' in data && Array.isArray(data.items)) {
+        // Formato json/query: { items: [...], first: ... }
+        categorias = data.items
+        console.log('Categorias received from ORDS json/query format:', categorias.length, 'categorias')
+      } else if (data.success !== undefined && data.message !== undefined) {
+        // Formato antiguo con { success, message, result_json }
+        if (!data.success) {
+          return NextResponse.json(
+            { error: data.message || "Error al obtener categorías" },
+            { status: 401 }
+          )
+        }
+
+        if (data.result_json) {
+          try {
+            const parsed = typeof data.result_json === 'string' 
+              ? JSON.parse(data.result_json) 
+              : data.result_json
+            categorias = Array.isArray(parsed) ? parsed : []
+          } catch (e) {
+            console.error('Error parsing result_json:', e)
+            categorias = []
+          }
+        }
+      } else {
+        // Objeto vacío o formato inesperado
         categorias = []
       }
     }
@@ -96,6 +123,12 @@ export async function GET(
       CT_ORDEN: cat.ct_orden || cat.CT_ORDEN,
       CT_ACTIVO: cat.ct_activo || cat.CT_ACTIVO,
     }))
+
+    console.log('Categorias finales transformadas:', {
+      count: transformedCategorias.length,
+      first: transformedCategorias[0] || null,
+      all: transformedCategorias.map(c => ({ id: c.CT_IDCATEGORIA_PK, nombre: c.CT_NOMBRE }))
+    })
 
     return NextResponse.json(transformedCategorias)
   } catch (error) {
