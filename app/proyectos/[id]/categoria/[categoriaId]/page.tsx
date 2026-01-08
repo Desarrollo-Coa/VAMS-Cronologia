@@ -48,6 +48,7 @@ interface ActivosPorDia {
   fecha: string
   dia: number
   mes: number
+  año: number
   mesNombre: string
   activos: ActivoVisual[]
 }
@@ -66,6 +67,7 @@ export default function CategoriaDetailPage() {
   const [proyecto, setProyecto] = useState<Proyecto | null>(null)
   const [categoria, setCategoria] = useState<Categoria | null>(null)
   const [activos, setActivos] = useState<ActivoVisual[]>([])
+  const [todosLosActivos, setTodosLosActivos] = useState<ActivoVisual[]>([]) // Todos los activos sin filtrar por año
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [añoSeleccionado, setAñoSeleccionado] = useState(new Date().getFullYear())
@@ -83,6 +85,7 @@ export default function CategoriaDetailPage() {
     fetchProyecto()
     fetchCategoria()
     fetchActivos()
+    fetchTodosLosActivos() // Cargar todos los activos para el modal de comparación
   }, [projectId, categoriaId, añoSeleccionado, mesSeleccionado])
 
   const fetchProyecto = async () => {
@@ -139,6 +142,27 @@ export default function CategoriaDetailPage() {
     }
   }
 
+  // Cargar todos los activos sin filtrar por año para el modal de comparación
+  const fetchTodosLosActivos = async () => {
+    try {
+      const response = await fetch(`/api/projects/${projectId}/activos?categoriaId=${categoriaId}`, {
+        credentials: "include",
+      })
+      
+      if (!response.ok) return
+      
+      const data = await response.json()
+      // Filtrar activos por categoría seleccionada
+      const activosFiltrados = (Array.isArray(data) ? data : []).filter(
+        (activo: ActivoVisual) => activo.CT_IDCATEGORIA_FK === parseInt(categoriaId)
+      )
+      setTodosLosActivos(activosFiltrados)
+    } catch (err) {
+      // Silenciar errores para no interrumpir la experiencia
+      console.error('Error cargando todos los activos:', err)
+    }
+  }
+
   // Agrupar activos por día
   const activosPorDia: ActivosPorDia[] = activos
     .filter((activo) => {
@@ -154,8 +178,9 @@ export default function CategoriaDetailPage() {
       const fecha = new Date(activo.AV_FECHA_CAPTURA!)
       const dia = fecha.getDate()
       const mes = fecha.getMonth() + 1
+      const año = fecha.getFullYear()
       const mesNombre = meses[mes - 1]
-      const fechaKey = `${fecha.getFullYear()}-${mes}-${dia}`
+      const fechaKey = `${año}-${mes}-${dia}`
 
       const grupoExistente = acc.find((g) => g.fecha === fechaKey)
       if (grupoExistente) {
@@ -165,6 +190,7 @@ export default function CategoriaDetailPage() {
           fecha: fechaKey,
           dia,
           mes,
+          año,
           mesNombre,
           activos: [activo],
         })
@@ -464,6 +490,7 @@ export default function CategoriaDetailPage() {
         onOpenChange={setCompareModalOpen}
         activosPorDia={activosPorDia}
         activoInicial={activoComparando}
+        todosLosActivos={todosLosActivos}
       />
     </AuthGuard>
   )
