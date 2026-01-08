@@ -65,6 +65,38 @@ export async function apiCall(endpoint: string, options: RequestInit = {}): Prom
     throw new Error("Token inválido o expirado")
   }
 
+  // Verificar también en el cuerpo de la respuesta si el token es inválido
+  // (ORDS a veces devuelve 200 con success: false y mensaje de token inválido)
+  if (response.ok) {
+    try {
+      const data = await response.clone().json()
+      if (data && typeof data === 'object') {
+        const success = data.success
+        const message = data.message || ''
+        
+        if ((success === 'false' || success === false) && 
+            typeof message === 'string' && 
+            message.toLowerCase().includes('token inválido')) {
+          // Token inválido detectado en la respuesta
+          if (typeof window !== "undefined") {
+            console.log('Token inválido detectado en respuesta, cerrando sesión automáticamente')
+            // Llamar a logout API route
+            fetch("/api/auth/logout", {
+              method: "POST",
+              credentials: "include",
+            }).then(() => {
+              window.location.href = "/login"
+            })
+          }
+          throw new Error("Token inválido o expirado")
+        }
+      }
+    } catch (e) {
+      // Si no se puede parsear como JSON, continuar normalmente
+      // (no es un error de token inválido)
+    }
+  }
+
   return response
 }
 

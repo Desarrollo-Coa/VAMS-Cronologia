@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { cookies } from "next/headers"
+import { checkAndHandleInvalidToken } from "@/lib/api-server-utils"
 
 export async function PUT(
   request: NextRequest,
@@ -61,6 +62,12 @@ export async function PUT(
     }
 
     const data = await response.json()
+
+    // Verificar si el token es inválido
+    const invalidTokenResponse = await checkAndHandleInvalidToken(data)
+    if (invalidTokenResponse) {
+      return invalidTokenResponse
+    }
 
     if (data.success === 'false') {
       return NextResponse.json(
@@ -144,6 +151,12 @@ export async function DELETE(
     }
 
     const data = await response.json()
+
+    // Verificar si el token es inválido
+    const invalidTokenResponse = await checkAndHandleInvalidToken(data)
+    if (invalidTokenResponse) {
+      return invalidTokenResponse
+    }
 
     if (data.success === 'false') {
       return NextResponse.json(

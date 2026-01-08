@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { cookies } from "next/headers"
+import { checkAndHandleInvalidToken } from "@/lib/api-server-utils"
 
 export async function GET(
   request: NextRequest,
@@ -91,6 +92,12 @@ export async function GET(
         activos = data.items
         console.log('Activos received from ORDS json/query format:', activos.length, 'activos')
       } else if (data.success !== undefined && data.message !== undefined) {
+        // Verificar si el token es inválido
+        const invalidTokenResponse = await checkAndHandleInvalidToken(data)
+        if (invalidTokenResponse) {
+          return invalidTokenResponse
+        }
+        
         // Formato antiguo con { success, message, result_json }
         if (!data.success) {
           return NextResponse.json(
@@ -278,6 +285,13 @@ export async function POST(
     }
 
     const data = await response.json()
+    
+    // Verificar si el token es inválido
+    const invalidTokenResponse = await checkAndHandleInvalidToken(data)
+    if (invalidTokenResponse) {
+      return invalidTokenResponse
+    }
+    
     console.log('Activo creado exitosamente:', {
       success: data.success,
       message: data.message,

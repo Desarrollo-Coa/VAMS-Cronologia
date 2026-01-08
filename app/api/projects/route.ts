@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { cookies } from "next/headers"
+import { checkAndHandleInvalidToken } from "@/lib/api-server-utils"
 
 export async function GET(request: NextRequest) {
   try {
@@ -72,6 +73,12 @@ export async function GET(request: NextRequest) {
         projects = data.items
         console.log('Projects received from ORDS json/query format:', projects.length, 'projects')
       } else if (data.success !== undefined && data.message !== undefined) {
+        // Verificar si el token es inválido
+        const invalidTokenResponse = await checkAndHandleInvalidToken(data)
+        if (invalidTokenResponse) {
+          return invalidTokenResponse
+        }
+        
         // Formato antiguo con { success, message, result_json }
         console.log('ORDS Response (old format):', {
           success: data.success,
@@ -195,6 +202,13 @@ export async function POST(request: NextRequest) {
     }
 
     const data = await response.json()
+    
+    // Verificar si el token es inválido
+    const invalidTokenResponse = await checkAndHandleInvalidToken(data)
+    if (invalidTokenResponse) {
+      return invalidTokenResponse
+    }
+    
     return NextResponse.json(data, { status: 201 })
   } catch (error) {
     console.error("Error creating project:", error)

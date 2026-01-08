@@ -14,6 +14,7 @@ import Image from "next/image"
 import Link from "next/link"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { DroneIcon } from "@/components/drone-icon"
+import { DroneProtocolChecklist } from "@/components/drone-protocol-checklist"
 
 interface FotoSeleccionada {
   file: File
@@ -58,6 +59,7 @@ export default function UploadPhotosPage() {
   const [proyecto, setProyecto] = useState<any>(null)
   const [categorias, setCategorias] = useState<Categoria[]>([])
   const [categoriaSeleccionada, setCategoriaSeleccionada] = useState<number | null>(null)
+  const [showProtocolChecklist, setShowProtocolChecklist] = useState(true)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -429,7 +431,13 @@ export default function UploadPhotosPage() {
       await Promise.all(activosPromises)
 
       fotos.forEach((foto) => URL.revokeObjectURL(foto.preview))
-      router.push(`/proyectos/${projectId}`)
+      
+      // Redirigir a la categoría donde se subieron las fotos
+      if (categoriaSeleccionada) {
+        router.push(`/proyectos/${projectId}/categoria/${categoriaSeleccionada}`)
+      } else {
+        router.push(`/proyectos/${projectId}`)
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error al subir las fotos")
       console.error('Error uploading photos:', err)
@@ -437,6 +445,7 @@ export default function UploadPhotosPage() {
       setIsUploading(false)
     }
   }
+  
 
   return (
     <AuthGuard>
@@ -678,6 +687,16 @@ export default function UploadPhotosPage() {
 
         <Footer />
       </div>
+
+      {/* Modal de Checklist de Protocolo de Vuelo */}
+      <DroneProtocolChecklist
+        open={showProtocolChecklist}
+        onOpenChange={setShowProtocolChecklist}
+        onContinue={() => {
+          // El checklist es opcional, simplemente cerramos el modal
+          setShowProtocolChecklist(false)
+        }}
+      />
     </AuthGuard>
   )
 }
