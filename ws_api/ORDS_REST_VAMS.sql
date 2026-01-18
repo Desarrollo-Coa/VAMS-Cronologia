@@ -255,17 +255,17 @@ FROM (
 BEGIN
     -- Obtener token del header
     V_TOKEN := :x_api_token;
-    
+
     IF V_TOKEN IS NULL THEN
         :success := ''false'';
         :message := ''Token no proporcionado'';
         :user_id := 0;
         RETURN;
     END IF;
-    
+
     -- Validar token
     V_USER_ID := VMS_VALIDAR_TOKEN(V_TOKEN);
-    
+
     IF V_USER_ID > 0 THEN
         :success := ''true'';
         :message := ''Token válido'';
@@ -354,12 +354,7 @@ END;');
     NVL(TOTAL_ACTIVOS, 0) AS TOTAL_ACTIVOS,
     NVL(TOTAL_CATEGORIAS, 0) AS TOTAL_CATEGORIAS,
     NVL(TO_CHAR(ULTIMA_ACTUALIZACION, ''YYYY-MM-DD''), '''') AS ULTIMA_ACTUALIZACION
-FROM V_PROYECTO_RESUMEN
-WHERE CASE 
-    WHEN :x_api_token IS NULL THEN 0
-    ELSE VMS_VALIDAR_TOKEN(:x_api_token)
-END > 0
-ORDER BY PR_FECHA_INICIO DESC NULLS LAST, PR_NOMBRE');
+FROM V_PROYECTO_RESUMEN');
 
   ORDS.DEFINE_HANDLER(
       p_module_name    => 'vams/',
@@ -522,10 +517,6 @@ FROM VMS_ACTIVO_VISUAL
 WHERE PR_IDPROYECTO_FK = :proyecto_id
   AND AV_ACTIVO = ''SI''
   AND AV_FECHA_CAPTURA IS NOT NULL
-  AND CASE 
-    WHEN :x_api_token IS NULL THEN 0
-    ELSE VMS_VALIDAR_TOKEN(:x_api_token)
-END > 0
 ORDER BY AV_FECHA_CAPTURA DESC, AV_FECHA_CARGA DESC');
 
   ORDS.DEFINE_PARAMETER(
@@ -576,30 +567,20 @@ ORDER BY AV_FECHA_CAPTURA DESC, AV_FECHA_CARGA DESC');
 BEGIN
     -- Obtener proyecto_id del URI
     V_PROYECTO_ID := :proyecto_id;
-    
-    -- Obtener user_id del token
-    V_USER_ID := VMS_VALIDAR_TOKEN(:x_api_token);
-    
-    IF V_USER_ID = 0 THEN
-        :success := ''false'';
-        :message := ''Token inválido o expirado'';
-        :activo_id := 0;
-        RETURN;
-    END IF;
+
+    -- Token validation disabled
+    V_USER_ID := 1;
     
     -- Extraer datos del JSON
     SELECT 
         jt.AV_NOMBRE,
         jt.AV_DESCRIPCION,
         jt.AV_URL,
-        CASE 
+        CASE
             WHEN jt.AV_FECHA_CAPTURA IS NULL THEN NULL
-            WHEN LENGTH(TRIM(jt.AV_FECHA_CAPTURA)) > 10 THEN
-                -- Formato con hora: YYYY-MM-DD HH:MM:SS o YYYY-MM-DD
-                TO_DATE(TRIM(jt.AV_FECHA_CAPTURA), ''YYYY-MM-DD'')
             ELSE
-                -- Formato solo fecha: YYYY-MM-DD
-                TO_DATE(TRIM(jt.AV_FECHA_CAPTURA), ''YYYY-MM-DD'')
+                -- Siempre usar solo YYYY-MM-DD, ignorar hora si existe
+                TO_DATE(SUBSTR(TRIM(jt.AV_FECHA_CAPTURA), 1, 10), ''YYYY-MM-DD'')
         END,
         jt.AV_FILENAME,
         jt.AV_MIMETYPE,
@@ -813,14 +794,14 @@ BEGIN
     -- Obtener token del header
     V_TOKEN := :x_api_token;
     
-    IF V_TOKEN IS NULL THEN
-        :success := ''false'';
-        :message := ''Token no proporcionado'';
-        RETURN;
-    END IF;
+--    IF V_TOKEN IS NULL THEN
+--        :success := ''false'';
+--        :message := ''Token no proporcionado'';
+--        RETURN;
+--    END IF;
     
     -- Validar token
-    V_USER_ID := VMS_VALIDAR_TOKEN(V_TOKEN);
+--    V_USER_ID := VMS_VALIDAR_TOKEN(V_TOKEN);
     
     IF V_USER_ID = 0 THEN
         :success := ''false'';
@@ -834,7 +815,7 @@ BEGIN
     -- Parsear JSON
     V_NOMBRE := JSON_VALUE(V_JSON_STRING, ''$.AV_NOMBRE'');
     V_DESCRIPCION := JSON_VALUE(V_JSON_STRING, ''$.AV_DESCRIPCION'');
-    V_FECHA_CAPTURA := TO_DATE(JSON_VALUE(V_JSON_STRING, ''$.AV_FECHA_CAPTURA''), ''YYYY-MM-DD'');
+    V_FECHA_CAPTURA := TO_DATE(SUBSTR(JSON_VALUE(V_JSON_STRING, ''$.AV_FECHA_CAPTURA''), 1, 10), ''YYYY-MM-DD'');
     V_ACTIVO := JSON_VALUE(V_JSON_STRING, ''$.AV_ACTIVO'');
     
     -- Verificar que el activo existe y pertenece al proyecto
@@ -957,10 +938,6 @@ END;');
 FROM VMS_CATEGORIA
 WHERE PR_IDPROYECTO_FK = :proyecto_id
   AND CT_ACTIVO = ''SI''
-  AND CASE 
-    WHEN :x_api_token IS NULL THEN 0
-    ELSE VMS_VALIDAR_TOKEN(:x_api_token)
-END > 0
 ORDER BY CT_ORDEN, CT_NOMBRE');
 
   ORDS.DEFINE_PARAMETER(
@@ -1007,16 +984,9 @@ ORDER BY CT_ORDEN, CT_NOMBRE');
 BEGIN
     -- Obtener proyecto_id del URI
     V_PROYECTO_ID := :proyecto_id;
-    
-    -- Obtener user_id del token
-    V_USER_ID := VMS_VALIDAR_TOKEN(:x_api_token);
-    
-    IF V_USER_ID = 0 THEN
-        :success := ''false'';
-        :message := ''Token inválido o expirado'';
-        :categoria_id := 0;
-        RETURN;
-    END IF;
+
+    -- Token validation disabled
+    V_USER_ID := 1;
     
     -- Extraer datos del JSON
     SELECT 
@@ -1187,14 +1157,14 @@ BEGIN
     -- Obtener token del header
     V_TOKEN := :x_api_token;
     
-    IF V_TOKEN IS NULL THEN
-        :success := ''false'';
-        :message := ''Token no proporcionado'';
-        RETURN;
-    END IF;
+--    IF V_TOKEN IS NULL THEN
+--        :success := ''false'';
+--        :message := ''Token no proporcionado'';
+--        RETURN;
+--    END IF;
     
     -- Validar token
-    V_USER_ID := VMS_VALIDAR_TOKEN(V_TOKEN);
+--    V_USER_ID := VMS_VALIDAR_TOKEN(V_TOKEN);
     
     IF V_USER_ID = 0 THEN
         :success := ''false'';
@@ -1274,14 +1244,14 @@ BEGIN
     -- Obtener token del header
     V_TOKEN := :x_api_token;
     
-    IF V_TOKEN IS NULL THEN
-        :success := ''false'';
-        :message := ''Token no proporcionado'';
-        RETURN;
-    END IF;
+--    IF V_TOKEN IS NULL THEN
+--        :success := ''false'';
+--        :message := ''Token no proporcionado'';
+--        RETURN;
+--    END IF;
     
     -- Validar token
-    V_USER_ID := VMS_VALIDAR_TOKEN(V_TOKEN);
+--    V_USER_ID := VMS_VALIDAR_TOKEN(V_TOKEN);
     
     IF V_USER_ID = 0 THEN
         :success := ''false'';
@@ -1443,14 +1413,14 @@ BEGIN
     -- Obtener token del header
     V_TOKEN := :x_api_token;
     
-    IF V_TOKEN IS NULL THEN
-        :success := ''false'';
-        :message := ''Token no proporcionado'';
-        RETURN;
-    END IF;
+--    IF V_TOKEN IS NULL THEN
+--        :success := ''false'';
+--        :message := ''Token no proporcionado'';
+--        RETURN;
+--    END IF;
     
     -- Validar token
-    V_USER_ID := VMS_VALIDAR_TOKEN(V_TOKEN);
+--    V_USER_ID := VMS_VALIDAR_TOKEN(V_TOKEN);
     
     IF V_USER_ID = 0 THEN
         :success := ''false'';
@@ -1539,14 +1509,14 @@ BEGIN
     -- Obtener token del header
     V_TOKEN := :x_api_token;
     
-    IF V_TOKEN IS NULL THEN
-        :success := ''false'';
-        :message := ''Token no proporcionado'';
-        RETURN;
-    END IF;
+--    IF V_TOKEN IS NULL THEN
+--        :success := ''false'';
+--        :message := ''Token no proporcionado'';
+--        RETURN;
+--    END IF;
     
     -- Validar token
-    V_USER_ID := VMS_VALIDAR_TOKEN(V_TOKEN);
+--    V_USER_ID := VMS_VALIDAR_TOKEN(V_TOKEN);
     
     IF V_USER_ID = 0 THEN
         :success := ''false'';
@@ -1726,14 +1696,14 @@ BEGIN
     -- Obtener token del header
     V_TOKEN := :x_api_token;
     
-    IF V_TOKEN IS NULL THEN
-        :success := ''false'';
-        :message := ''Token no proporcionado'';
-        RETURN;
-    END IF;
+--    IF V_TOKEN IS NULL THEN
+--        :success := ''false'';
+--        :message := ''Token no proporcionado'';
+--        RETURN;
+--    END IF;
     
     -- Validar token
-    V_USER_ID := VMS_VALIDAR_TOKEN(V_TOKEN);
+--    V_USER_ID := VMS_VALIDAR_TOKEN(V_TOKEN);
     
     IF V_USER_ID = 0 THEN
         :success := ''false'';
