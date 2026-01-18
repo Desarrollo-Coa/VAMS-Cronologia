@@ -353,7 +353,7 @@ END;');
     PR_ACTIVO,
     NVL(TOTAL_ACTIVOS, 0) AS TOTAL_ACTIVOS,
     NVL(TOTAL_CATEGORIAS, 0) AS TOTAL_CATEGORIAS,
-    NVL(TO_CHAR(ULTIMA_ACTUALIZACION, ''YYYY-MM-DD HH24:MI:SS''), '''') AS ULTIMA_ACTUALIZACION
+    NVL(TO_CHAR(ULTIMA_ACTUALIZACION, ''YYYY-MM-DD''), '''') AS ULTIMA_ACTUALIZACION
 FROM V_PROYECTO_RESUMEN
 WHERE CASE 
     WHEN :x_api_token IS NULL THEN 0
@@ -517,7 +517,7 @@ END;');
     AV_DESCRIPCION AS av_descripcion,
     AV_URL AS av_url,
     TO_CHAR(AV_FECHA_CAPTURA, ''YYYY-MM-DD'') AS av_fecha_captura,
-    TO_CHAR(AV_FECHA_CARGA, ''YYYY-MM-DD HH24:MI:SS'') AS av_fecha_carga
+    TO_CHAR(AV_FECHA_CARGA, ''YYYY-MM-DD'') AS av_fecha_carga
 FROM VMS_ACTIVO_VISUAL
 WHERE PR_IDPROYECTO_FK = :proyecto_id
   AND AV_ACTIVO = ''SI''
@@ -595,8 +595,8 @@ BEGIN
         CASE 
             WHEN jt.AV_FECHA_CAPTURA IS NULL THEN NULL
             WHEN LENGTH(TRIM(jt.AV_FECHA_CAPTURA)) > 10 THEN
-                -- Formato con hora: YYYY-MM-DD HH:MM:SS o YYYY-MM-DD HH24:MI:SS
-                TO_DATE(TRIM(jt.AV_FECHA_CAPTURA), ''YYYY-MM-DD HH24:MI:SS'')
+                -- Formato con hora: YYYY-MM-DD HH:MM:SS o YYYY-MM-DD
+                TO_DATE(TRIM(jt.AV_FECHA_CAPTURA), ''YYYY-MM-DD'')
             ELSE
                 -- Formato solo fecha: YYYY-MM-DD
                 TO_DATE(TRIM(jt.AV_FECHA_CAPTURA), ''YYYY-MM-DD'')

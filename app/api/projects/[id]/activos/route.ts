@@ -17,9 +17,11 @@ export async function GET(
       )
     }
 
-    // Obtener año del query string (opcional)
+    // Obtener parámetros del query string
     const { searchParams } = new URL(request.url)
     const year = searchParams.get('year')
+    const categoriaId = searchParams.get('categoriaId')
+    console.log('Query params recibidos:', Object.fromEntries(searchParams.entries()));
 
     // Obtener token de las cookies (servidor)
     const cookieStore = await cookies()
@@ -48,9 +50,16 @@ export async function GET(
       "X-API-Token": token,
     }
 
-    // Construir URL del endpoint
+    // Construir URL del endpoint CON FILTROS (year y categoriaId)
     const cleanApiUrl = apiUrl.endsWith('/') ? apiUrl.slice(0, -1) : apiUrl
-    const endpoint = `${cleanApiUrl}/proyectos/${projectId}/activos`
+    let endpoint = `${cleanApiUrl}/proyectos/${projectId}/activos`
+    const queryParams = new URLSearchParams()
+    if (categoriaId) queryParams.append('categoriaId', categoriaId)
+    if (year) queryParams.append('year', year)
+    if (queryParams.toString()) {
+      endpoint += `?${queryParams.toString()}`
+    }
+    console.log('Endpoint construido con filtros:', endpoint) // Debug nuevo
 
     // Llamar al endpoint ORDS para obtener activos visuales
     const response = await fetch(endpoint, {
@@ -135,19 +144,30 @@ export async function GET(
       AV_FECHA_CARGA: activo.av_fecha_carga || activo.AV_FECHA_CARGA,
     }))
 
+    // Log de ejemplo de fecha para debug (incluso si count=0, muestra formato si hay datos)
+    if (transformedActivos.length > 0) {
+      console.log('Ejemplo de AV_FECHA_CAPTURA:', transformedActivos[0].AV_FECHA_CAPTURA)
+    }
+
     console.log('Activos transformados (antes de filtrar por año):', {
       count: transformedActivos.length,
       first: transformedActivos[0] || null,
       yearFilter: year || 'none'
     })
 
-    // Filtrar por año si se proporciona
+    // Filtrar por año si se proporciona (fallback, si ORDS no filtra)
     if (year) {
       const añoFiltro = parseInt(year)
       transformedActivos = transformedActivos.filter((activo) => {
         if (!activo.AV_FECHA_CAPTURA) return false
-        const fecha = new Date(activo.AV_FECHA_CAPTURA)
-        return fecha.getFullYear() === añoFiltro
+        
+        // Parseo robusto: extrae YYYY con regex (maneja ISO, timestamp o 'YYYY-MM-DD HH:MM:SS')
+        const match = activo.AV_FECHA_CAPTURA.toString().match(/(\d{4})/)
+        const añoActivo = match ? parseInt(match[1]) : NaN
+        
+        console.log(`Filtrando activo ${activo.AV_IDACTIVO_PK}: fecha='${activo.AV_FECHA_CAPTURA}', año extraído=${añoActivo}, filtro=${añoFiltro}`) // Debug por activo
+        
+        return !isNaN(añoActivo) && añoActivo === añoFiltro
       })
       console.log('Activos después de filtrar por año', year, ':', transformedActivos.length)
     }

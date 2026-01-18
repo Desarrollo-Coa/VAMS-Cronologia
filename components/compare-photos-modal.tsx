@@ -64,29 +64,47 @@ export function ComparePhotosModal({
   // Generar lista completa de activos por día desde todos los activos
   const todosLosActivosPorDia = useMemo(() => {
     const activosFuente = todosLosActivos.length > 0 ? todosLosActivos : activosPorDia.flatMap(d => d.activos)
-    
+    console.log('Procesando activos para modal de comparación:', {
+      totalActivos: activosFuente.length,
+      activosConFecha: activosFuente.filter(a => a.AV_FECHA_CAPTURA).length,
+      primerosActivos: activosFuente.slice(0, 3).map(a => ({
+        id: a.AV_IDACTIVO_PK,
+        fecha: a.AV_FECHA_CAPTURA
+      }))
+    })
+
     return activosFuente
       .filter((activo) => activo.AV_FECHA_CAPTURA)
       .reduce((acc: ActivosPorDia[], activo) => {
-        const fecha = new Date(activo.AV_FECHA_CAPTURA!)
-        const dia = fecha.getDate()
-        const mes = fecha.getMonth() + 1
-        const año = fecha.getFullYear()
-        const mesNombre = meses[mes - 1]
-        const fechaKey = `${año}-${mes}-${dia}`
+        try {
+          const fecha = new Date(activo.AV_FECHA_CAPTURA!)
+          // Verificar que la fecha sea válida
+          if (isNaN(fecha.getTime())) {
+            console.warn(`Fecha inválida para activo ${activo.AV_IDACTIVO_PK}:`, activo.AV_FECHA_CAPTURA)
+            return acc
+          }
 
-        const grupoExistente = acc.find((g) => g.fecha === fechaKey)
-        if (grupoExistente) {
-          grupoExistente.activos.push(activo)
-        } else {
-          acc.push({
-            fecha: fechaKey,
-            dia,
-            mes,
-            año,
-            mesNombre,
-            activos: [activo],
-          })
+          const dia = fecha.getDate()
+          const mes = fecha.getMonth() + 1
+          const año = fecha.getFullYear()
+          const mesNombre = meses[mes - 1]
+          const fechaKey = `${año}-${mes}-${dia}`
+
+          const grupoExistente = acc.find((g) => g.fecha === fechaKey)
+          if (grupoExistente) {
+            grupoExistente.activos.push(activo)
+          } else {
+            acc.push({
+              fecha: fechaKey,
+              dia,
+              mes,
+              año,
+              mesNombre,
+              activos: [activo],
+            })
+          }
+        } catch (error) {
+          console.warn(`Error procesando fecha para activo ${activo.AV_IDACTIVO_PK}:`, activo.AV_FECHA_CAPTURA, error)
         }
         return acc
       }, [])
@@ -100,8 +118,10 @@ export function ComparePhotosModal({
 
   // Obtener años únicos disponibles
   const añosDisponibles = useMemo(() => {
-    const años = new Set(todosLosActivosPorDia.map(d => d.año))
-    return Array.from(años).sort((a, b) => b - a) // Más reciente primero
+    const años = new Set(todosLosActivosPorDia.map(d => d.año).filter(año => !isNaN(año) && año > 0))
+    const añosArray = Array.from(años).sort((a, b) => b - a) // Más reciente primero
+    console.log('Años disponibles:', añosArray)
+    return añosArray
   }, [todosLosActivosPorDia])
 
   // Obtener meses disponibles para un año específico
