@@ -339,22 +339,24 @@ END;');
       p_module_name    => 'vams/',
       p_pattern        => 'proyectos',
       p_method         => 'GET',
-      p_source_type    => 'json/query',
+      p_source_type    => ords.source_type_collection_feed,
+      p_items_per_page => 25,
       p_mimes_allowed  => NULL,
       p_comments       => NULL,
-      p_source         => 
-'SELECT 
+      p_source         => q'[
+SELECT 
     PR_IDPROYECTO_PK,
     PR_NOMBRE,
     PR_UBICACION,
     PR_FOTO_PORTADA_URL,
-    TO_CHAR(PR_FECHA_INICIO, ''YYYY-MM-DD'') AS PR_FECHA_INICIO,
-    TO_CHAR(PR_FECHA_FIN, ''YYYY-MM-DD'') AS PR_FECHA_FIN,
+    TO_CHAR(PR_FECHA_INICIO, 'YYYY-MM-DD') AS PR_FECHA_INICIO,
+    TO_CHAR(PR_FECHA_FIN, 'YYYY-MM-DD') AS PR_FECHA_FIN,
     PR_ACTIVO,
     NVL(TOTAL_ACTIVOS, 0) AS TOTAL_ACTIVOS,
     NVL(TOTAL_CATEGORIAS, 0) AS TOTAL_CATEGORIAS,
-    NVL(TO_CHAR(ULTIMA_ACTUALIZACION, ''YYYY-MM-DD''), '''') AS ULTIMA_ACTUALIZACION
-FROM V_PROYECTO_RESUMEN');
+    NVL(TO_CHAR(ULTIMA_ACTUALIZACION, 'YYYY-MM-DD'), '') AS ULTIMA_ACTUALIZACION
+FROM V_PROYECTO_RESUMEN
+]');
 
   ORDS.DEFINE_HANDLER(
       p_module_name    => 'vams/',
@@ -469,17 +471,6 @@ END;');
   ORDS.DEFINE_PARAMETER(
       p_module_name        => 'vams/',
       p_pattern            => 'proyectos',
-      p_method             => 'GET',
-      p_name               => 'X-API-Token',
-      p_bind_variable_name => 'x_api_token',
-      p_source_type        => 'HEADER',
-      p_param_type         => 'STRING',
-      p_access_method      => 'IN',
-      p_comments           => NULL);
-
-  ORDS.DEFINE_PARAMETER(
-      p_module_name        => 'vams/',
-      p_pattern            => 'proyectos',
       p_method             => 'POST',
       p_name               => 'proyecto_id',
       p_bind_variable_name => 'proyecto_id',
@@ -500,47 +491,26 @@ END;');
       p_module_name    => 'vams/',
       p_pattern        => 'proyectos/:proyecto_id/activos',
       p_method         => 'GET',
-      p_source_type    => 'json/query',
+      p_source_type    => ords.source_type_collection_feed,
+      p_items_per_page => 25,
       p_mimes_allowed  => NULL,
       p_comments       => NULL,
-      p_source         => 
-'SELECT 
+      p_source         => q'[
+SELECT 
     AV_IDACTIVO_PK AS av_idactivo_pk,
     PR_IDPROYECTO_FK AS pr_idproyecto_fk,
     CT_IDCATEGORIA_FK AS ct_idcategoria_fk,
     AV_NOMBRE AS av_nombre,
     AV_DESCRIPCION AS av_descripcion,
     AV_URL AS av_url,
-    TO_CHAR(AV_FECHA_CAPTURA, ''YYYY-MM-DD'') AS av_fecha_captura,
-    TO_CHAR(AV_FECHA_CARGA, ''YYYY-MM-DD'') AS av_fecha_carga
+    TO_CHAR(AV_FECHA_CAPTURA, 'YYYY-MM-DD') AS av_fecha_captura,
+    TO_CHAR(AV_FECHA_CARGA, 'YYYY-MM-DD') AS av_fecha_carga
 FROM VMS_ACTIVO_VISUAL
 WHERE PR_IDPROYECTO_FK = :proyecto_id
-  AND AV_ACTIVO = ''SI''
+  AND AV_ACTIVO = 'SI'
   AND AV_FECHA_CAPTURA IS NOT NULL
-ORDER BY AV_FECHA_CAPTURA DESC, AV_FECHA_CARGA DESC');
-
-  ORDS.DEFINE_PARAMETER(
-      p_module_name        => 'vams/',
-      p_pattern            => 'proyectos/:proyecto_id/activos',
-      p_method             => 'GET',
-      p_name               => 'X-API-Token',
-      p_bind_variable_name => 'x_api_token',
-      p_source_type        => 'HEADER',
-      p_param_type         => 'STRING',
-      p_access_method      => 'IN',
-      p_comments           => NULL);
-
-  ORDS.DEFINE_PARAMETER(
-      p_module_name        => 'vams/',
-      p_pattern            => 'proyectos/:proyecto_id/activos',
-      p_method             => 'GET',
-      p_name               => 'proyecto_id',
-      p_bind_variable_name => 'proyecto_id',
-      p_source_type        => 'URI',
-      p_param_type         => 'INT',
-      p_access_method      => 'IN',
-      p_comments           => NULL);
-
+ORDER BY AV_FECHA_CAPTURA DESC, AV_FECHA_CARGA DESC
+]');
 
   ORDS.DEFINE_HANDLER(
       p_module_name    => 'vams/',
@@ -922,11 +892,12 @@ END;');
       p_module_name    => 'vams/',
       p_pattern        => 'proyectos/:proyecto_id/categorias',
       p_method         => 'GET',
-      p_source_type    => 'json/query',
+      p_source_type    => ords.source_type_collection_feed,
+      p_items_per_page => 25,
       p_mimes_allowed  => NULL,
       p_comments       => NULL,
-      p_source         => 
-'SELECT 
+      p_source         => q'[
+SELECT 
     CT_IDCATEGORIA_PK,
     PR_IDPROYECTO_FK,
     CT_NOMBRE,
@@ -937,31 +908,9 @@ END;');
     CT_ACTIVO
 FROM VMS_CATEGORIA
 WHERE PR_IDPROYECTO_FK = :proyecto_id
-  AND CT_ACTIVO = ''SI''
-ORDER BY CT_ORDEN, CT_NOMBRE');
-
-  ORDS.DEFINE_PARAMETER(
-      p_module_name        => 'vams/',
-      p_pattern            => 'proyectos/:proyecto_id/categorias',
-      p_method             => 'GET',
-      p_name               => 'X-API-Token',
-      p_bind_variable_name => 'x_api_token',
-      p_source_type        => 'HEADER',
-      p_param_type         => 'STRING',
-      p_access_method      => 'IN',
-      p_comments           => NULL);
-
-  ORDS.DEFINE_PARAMETER(
-      p_module_name        => 'vams/',
-      p_pattern            => 'proyectos/:proyecto_id/categorias',
-      p_method             => 'GET',
-      p_name               => 'proyecto_id',
-      p_bind_variable_name => 'proyecto_id',
-      p_source_type        => 'URI',
-      p_param_type         => 'INT',
-      p_access_method      => 'IN',
-      p_comments           => NULL);
-
+  AND CT_ACTIVO = 'SI'
+ORDER BY CT_ORDEN, CT_NOMBRE
+]');
 
   ORDS.DEFINE_HANDLER(
       p_module_name    => 'vams/',
@@ -1148,6 +1097,9 @@ END;');
   V_NOMBRE VARCHAR2(200);
   V_DESCRIPCION VARCHAR2(500);
   V_UBICACION VARCHAR2(200);
+  V_FOTO_PORTADA_URL VARCHAR2(500);
+  V_FECHA_INICIO DATE;
+  V_FECHA_FIN DATE;
   V_USER_ID NUMBER;
   V_TOKEN VARCHAR2(32);
 BEGIN
@@ -1163,29 +1115,47 @@ BEGIN
 --        RETURN;
 --    END IF;
     
-    -- Validar token
+    -- Validar token (deshabilitado por ahora)
 --    V_USER_ID := VMS_VALIDAR_TOKEN(V_TOKEN);
+--    
+--    IF V_USER_ID = 0 THEN
+--        :success := ''false'';
+--        :message := ''Token inválido o expirado'';
+--        RETURN;
+--    END IF;
     
-    IF V_USER_ID = 0 THEN
-        :success := ''false'';
-        :message := ''Token inválido o expirado'';
-        RETURN;
-    END IF;
+    -- Inicializar V_USER_ID para evitar problemas con NULL
+    V_USER_ID := 1;
     
     -- Extraer datos del JSON
     SELECT 
         jt.PR_NOMBRE,
         jt.PR_DESCRIPCION,
-        jt.PR_UBICACION
+        jt.PR_UBICACION,
+        jt.PR_FOTO_PORTADA_URL,
+        CASE
+            WHEN jt.PR_FECHA_INICIO IS NULL THEN NULL
+            ELSE TO_DATE(SUBSTR(TRIM(jt.PR_FECHA_INICIO), 1, 10), ''YYYY-MM-DD'')
+        END,
+        CASE
+            WHEN jt.PR_FECHA_FIN IS NULL THEN NULL
+            ELSE TO_DATE(SUBSTR(TRIM(jt.PR_FECHA_FIN), 1, 10), ''YYYY-MM-DD'')
+        END
     INTO 
         V_NOMBRE,
         V_DESCRIPCION,
-        V_UBICACION
+        V_UBICACION,
+        V_FOTO_PORTADA_URL,
+        V_FECHA_INICIO,
+        V_FECHA_FIN
     FROM JSON_TABLE(L_PO FORMAT JSON, ''$''
              COLUMNS (
                PR_NOMBRE VARCHAR2(200) PATH ''$.PR_NOMBRE'',
                PR_DESCRIPCION VARCHAR2(500) PATH ''$.PR_DESCRIPCION'',
-               PR_UBICACION VARCHAR2(200) PATH ''$.PR_UBICACION''
+               PR_UBICACION VARCHAR2(200) PATH ''$.PR_UBICACION'',
+               PR_FOTO_PORTADA_URL VARCHAR2(500) PATH ''$.PR_FOTO_PORTADA_URL'',
+               PR_FECHA_INICIO VARCHAR2(30) PATH ''$.PR_FECHA_INICIO'',
+               PR_FECHA_FIN VARCHAR2(30) PATH ''$.PR_FECHA_FIN''
              )) jt;
     
     IF V_NOMBRE IS NULL OR TRIM(V_NOMBRE) = '''' THEN
@@ -1210,7 +1180,10 @@ BEGIN
     UPDATE VMS_PROYECTO
     SET PR_NOMBRE = V_NOMBRE,
         PR_DESCRIPCION = NULLIF(V_DESCRIPCION, ''''),
-        PR_UBICACION = NULLIF(V_UBICACION, '''')
+        PR_UBICACION = NULLIF(V_UBICACION, ''''),
+        PR_FOTO_PORTADA_URL = NULLIF(V_FOTO_PORTADA_URL, ''''),
+        PR_FECHA_INICIO = V_FECHA_INICIO,
+        PR_FECHA_FIN = V_FECHA_FIN
     WHERE PR_IDPROYECTO_PK = V_PROYECTO_ID;
     
     COMMIT;
@@ -1235,6 +1208,8 @@ END;');
       p_source         => 
 'DECLARE
   V_PROYECTO_ID NUMBER;
+  V_CATEGORIAS_COUNT NUMBER;
+  V_ACTIVOS_COUNT NUMBER;
   V_USER_ID NUMBER;
   V_TOKEN VARCHAR2(32);
 BEGIN
@@ -1244,37 +1219,44 @@ BEGIN
     -- Obtener token del header
     V_TOKEN := :x_api_token;
     
---    IF V_TOKEN IS NULL THEN
---        :success := ''false'';
---        :message := ''Token no proporcionado'';
---        RETURN;
---    END IF;
+    -- Validar relaciones: verificar si tiene categorías activas
+    SELECT COUNT(*) INTO V_CATEGORIAS_COUNT
+    FROM VMS_CATEGORIA
+    WHERE PR_IDPROYECTO_FK = V_PROYECTO_ID
+      AND CT_ACTIVO = ''SI'';
     
-    -- Validar token
---    V_USER_ID := VMS_VALIDAR_TOKEN(V_TOKEN);
+    -- Validar relaciones: verificar si tiene activos visuales activos
+    SELECT COUNT(*) INTO V_ACTIVOS_COUNT
+    FROM VMS_ACTIVO_VISUAL
+    WHERE PR_IDPROYECTO_FK = V_PROYECTO_ID
+      AND AV_ACTIVO = ''SI'';
     
-    IF V_USER_ID = 0 THEN
+    -- Si tiene relaciones activas, no permitir eliminación
+    IF V_CATEGORIAS_COUNT > 0 OR V_ACTIVOS_COUNT > 0 THEN
         :success := ''false'';
-        :message := ''Token inválido o expirado'';
+        :message := ''No se puede eliminar el proyecto porque tiene '' || 
+                    CASE 
+                        WHEN V_CATEGORIAS_COUNT > 0 AND V_ACTIVOS_COUNT > 0 THEN
+                            V_CATEGORIAS_COUNT || '' categoría(s) y '' || V_ACTIVOS_COUNT || '' foto(s) asociadas''
+                        WHEN V_CATEGORIAS_COUNT > 0 THEN
+                            V_CATEGORIAS_COUNT || '' categoría(s) asociada(s)''
+                        ELSE
+                            V_ACTIVOS_COUNT || '' foto(s) asociada(s)''
+                    END || ''. Elimine primero las categorías y fotos asociadas.'';
         RETURN;
     END IF;
     
-    -- Verificar que el proyecto existe
-    SELECT COUNT(*) INTO V_USER_ID
-    FROM VMS_PROYECTO 
-    WHERE PR_IDPROYECTO_PK = V_PROYECTO_ID
-      AND PR_ACTIVO = ''SI'';
+    -- Marcar proyecto como inactivo (soft delete) - Simple UPDATE WHERE id = id
+    UPDATE VMS_PROYECTO
+    SET PR_ACTIVO = ''NO''
+    WHERE PR_IDPROYECTO_PK = V_PROYECTO_ID;
     
-    IF V_USER_ID = 0 THEN
+    -- Verificar que se actualizó al menos una fila
+    IF SQL%ROWCOUNT = 0 THEN
         :success := ''false'';
         :message := ''Proyecto no encontrado'';
         RETURN;
     END IF;
-    
-    -- Marcar proyecto como inactivo (soft delete)
-    UPDATE VMS_PROYECTO
-    SET PR_ACTIVO = ''NO''
-    WHERE PR_IDPROYECTO_PK = V_PROYECTO_ID;
     
     COMMIT;
     

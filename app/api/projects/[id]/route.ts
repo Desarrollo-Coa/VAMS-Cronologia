@@ -119,43 +119,88 @@ export async function DELETE(
       )
     }
 
+    // DELETE no necesita Content-Type porque no envía body
+    // Si enviamos Content-Type: application/json sin body, ORDS falla con "Expected one of: <<{,[>> but got: <<EOF>>"
     const headers: HeadersInit = {
-      "Content-Type": "application/json",
       "X-API-Token": token,
     }
 
     const cleanApiUrl = apiUrl.endsWith('/') ? apiUrl.slice(0, -1) : apiUrl
     const endpoint = `${cleanApiUrl}/proyectos/${projectId}`
 
+    console.log('DELETE /api/projects/[id] - Llamando a ORDS:', {
+      endpoint,
+      method: 'DELETE',
+      headers,
+      projectId
+    })
+
     const response = await fetch(endpoint, {
       method: "DELETE",
       headers,
     })
 
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}))
-      return NextResponse.json(
-        { error: errorData.message || errorData.error || "Error al eliminar el proyecto" },
-        { status: response.status }
-      )
-    }
+    console.log('DELETE /api/projects/[id] - ORDS response status:', {
+      status: response.status,
+      statusText: response.statusText,
+      contentType: response.headers.get('content-type'),
+      url: response.url,
+      headers: Object.fromEntries(response.headers.entries())
+    })
 
-    const data = await response.json()
+    // Intentar obtener el cuerpo de la respuesta
+    let responseData: any = {}
+    let responseText = ""
+    
+    try {
+      responseText = await response.text()
+      console.log('DELETE /api/projects/[id] - Response text (COMPLETO):', responseText)
+      console.log('DELETE /api/projects/[id] - Response text length:', responseText.length)
+      
+      if (responseText) {
+        // Verificar si es HTML (error de ORDS)
+        if (responseText.trim().startsWith('<!DOCTYPE') || responseText.trim().startsWith('<html')) {
+          console.error("ORDS devolvió HTML en lugar de JSON (COMPLETO):", responseText)
+          return NextResponse.json(
+            { error: "El endpoint DELETE no está disponible en el servidor. Por favor, ejecuta el script SQL actualizado." },
+            { status: 500 }
+          )
+        }
+        
+        // Intentar parsear como JSON
+        try {
+          responseData = JSON.parse(responseText)
+        } catch (parseError) {
+          console.error("Error parsing JSON response:", parseError)
+          // Si no es JSON válido, puede ser un mensaje de error en texto plano
+          if (responseText.trim()) {
+            responseData = { message: responseText.trim() }
+          }
+        }
+      }
+    } catch (e) {
+      console.error("Error reading response:", e)
+    }
+    
+    console.log('DELETE /api/projects/[id] - Parsed data:', responseData)
 
     // Verificar si el token es inválido
-    const invalidTokenResponse = await checkAndHandleInvalidToken(data)
+    const invalidTokenResponse = await checkAndHandleInvalidToken(responseData)
     if (invalidTokenResponse) {
       return invalidTokenResponse
     }
 
-    if (data.success === 'false') {
+    // ORDS puede devolver success: 'false' incluso con status 200
+    if (responseData.success === 'false' || responseData.success === false || !response.ok) {
+      const errorMessage = responseData.message || responseData.error || responseText || "Error al eliminar el proyecto"
+      console.log('DELETE /api/projects/[id] - Error:', errorMessage)
       return NextResponse.json(
-        { error: data.message || "Error al eliminar el proyecto" },
-        { status: 400 }
+        { error: errorMessage },
+        { status: response.ok ? 400 : response.status }
       )
     }
 
-    return NextResponse.json(data)
+    return NextResponse.json(responseData)
   } catch (error) {
     console.error("Error deleting project:", error)
     return NextResponse.json(
