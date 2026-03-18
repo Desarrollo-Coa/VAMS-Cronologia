@@ -8,7 +8,7 @@ const _geist = Geist({ subsets: ["latin"] })
 const _geistMono = Geist_Mono({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "VAMS - Sistema de almacenamiento de fotos aéreas",
+  title: "S.A.F.A - Sistema de almacenamiento de fotos aéreas",
   description: "Sistema de almacenamiento de fotos aéreas - Captura la Evolución, Organiza el Cambio",
   generator: "v0.app",
   manifest: "/manifest.json",
@@ -16,7 +16,7 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "VAMS",
+    title: "S.A.F.A",
   },
   icons: {
     icon: [
