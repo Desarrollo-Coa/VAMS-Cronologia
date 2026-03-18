@@ -8,8 +8,8 @@ const _geist = Geist({ subsets: ["latin"] })
 const _geistMono = Geist_Mono({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "VAMS - Sistema de Gestión de Activos Visuales",
-  description: "Sistema de Gestión de Activos Visuales - Captura la Evolución, Organiza el Cambio",
+  title: "VAMS - Sistema de almacenamiento de fotos aéreas",
+  description: "Sistema de almacenamiento de fotos aéreas - Captura la Evolución, Organiza el Cambio",
   generator: "v0.app",
   manifest: "/manifest.json",
   themeColor: "#1e293b",

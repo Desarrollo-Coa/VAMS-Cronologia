@@ -72,7 +72,7 @@ export default function LoginPage() {
               <Camera className="w-8 h-8 text-white" />
             </div>
             <h1 className="text-3xl font-bold text-slate-900 mb-2">Iniciar Sesión</h1>
-            <p className="text-gray-600">Sistema de Gestión de Activos Visuales</p>
+            <p className="text-gray-600">Sistema de almacenamiento de fotos aéreas</p>
           </div>
 
           {error && (

@@ -9,15 +9,16 @@ import { Textarea } from "@/components/ui/textarea"
 import { Trash2, Save, Upload, X } from "lucide-react"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
 import Image from "next/image"
+import { compressImage } from "@/lib/image-utils"
 
 interface Proyecto {
   PR_IDPROYECTO_PK: number
   PR_NOMBRE: string
-  PR_UBICACION?: string
-  PR_DESCRIPCION?: string
-  PR_FOTO_PORTADA_URL?: string
-  PR_FECHA_INICIO?: string
-  PR_FECHA_FIN?: string
+  PR_UBICACION?: string | null
+  PR_DESCRIPCION?: string | null
+  PR_FOTO_PORTADA_URL?: string | null
+  PR_FECHA_INICIO?: string | null
+  PR_FECHA_FIN?: string | null
 }
 
 interface EditProjectModalProps {
@@ -140,12 +141,20 @@ export function EditProjectModal({
     // Subir archivo usando Firebase Client SDK
     try {
       setUploadingImage(true)
-      
+
       const { uploadFileToStorage } = await import('@/lib/firebase-client')
-      
+
+      // OPTIMIZACIÓN: Comprimir imagen antes de subir
+      const compressedFile = await compressImage(file, {
+        maxWidth: 1600,
+        maxHeight: 1200,
+        quality: 0.8,
+        format: 'image/jpeg'
+      })
+
       // Subir archivo
-      const url = await uploadFileToStorage(file, "proyectos")
-      
+      const url = await uploadFileToStorage(compressedFile, "proyectos")
+
       setFotoPortadaUrl(url)
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error al subir la imagen")
@@ -182,7 +191,7 @@ export function EditProjectModal({
         PR_FECHA_INICIO: fechaInicio || null,
         PR_FECHA_FIN: fechaFin || null,
       }
-      
+
       console.log('EditProjectModal - Enviando datos:', payload)
 
       const response = await fetch(`/api/projects/${proyecto.PR_IDPROYECTO_PK}`, {
@@ -316,7 +325,7 @@ export function EditProjectModal({
 
             <div>
               <Label htmlFor="fotoPortada">Foto de Portada</Label>
-              
+
               {imagePreview ? (
                 <div className="relative">
                   <div className="relative w-full h-48 rounded-md overflow-hidden border border-gray-300">

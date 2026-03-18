@@ -16,6 +16,7 @@ import { Project } from "@/lib/types"
 import Image from "next/image"
 import Link from "next/link"
 import { EditProjectModal } from "@/components/edit-project-modal"
+import { compressImage } from "@/lib/image-utils"
 
 interface ProjectResumen extends Project {
   TOTAL_ACTIVOS?: number
@@ -77,13 +78,23 @@ export default function ProyectosPage() {
     // Subir archivo usando Firebase Client SDK con credenciales temporales
     try {
       setUploadingImage(true)
-      
+
       // Importar dinámicamente para evitar problemas de SSR
       const { uploadFileToStorage } = await import('@/lib/firebase-client')
-      
+
+      // OPTIMIZACIÓN: Comprimir imagen antes de subir (especialmente si pesa 30-50MB)
+      console.log('Original size:', (file.size / 1024 / 1024).toFixed(2), 'MB')
+      const compressedFile = await compressImage(file, {
+        maxWidth: 1600,
+        maxHeight: 1200,
+        quality: 0.8,
+        format: 'image/jpeg'
+      })
+      console.log('Compressed size:', (compressedFile.size / 1024 / 1024).toFixed(2), 'MB')
+
       // Subir archivo (las credenciales se obtienen, usan y limpian automáticamente)
-      const url = await uploadFileToStorage(file, "proyectos")
-      
+      const url = await uploadFileToStorage(compressedFile, "proyectos")
+
       setFormData({ ...formData, PR_FOTO_PORTADA_URL: url })
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error al subir la imagen")
@@ -117,20 +128,20 @@ export default function ProyectosPage() {
       const response = await fetch("/api/projects", {
         credentials: "include",
       })
-      
+
       if (!response.ok) {
         throw new Error("Error al cargar proyectos")
       }
 
       const data = await response.json()
       const projectsList = Array.isArray(data) ? data : []
-      
+
       // Debug: verificar URLs de imágenes
       console.log('Proyectos recibidos:', projectsList.map(p => ({
         nombre: p.PR_NOMBRE,
         foto_url: p.PR_FOTO_PORTADA_URL
       })))
-      
+
       setProjects(projectsList)
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error desconocido")
@@ -142,7 +153,7 @@ export default function ProyectosPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    
+
     if (!formData.PR_NOMBRE.trim()) {
       setError("El nombre del proyecto es requerido")
       return
@@ -206,7 +217,7 @@ export default function ProyectosPage() {
                   <h1 className="text-xl sm:text-2xl font-bold text-slate-900">Proyectos</h1>
                 </div>
                 <div className="flex items-center gap-2 w-full sm:w-auto">
-                  <Button 
+                  <Button
                     className="bg-slate-800 hover:bg-slate-700 text-white w-full sm:w-auto text-sm sm:text-base"
                     onClick={() => setIsDialogOpen(true)}
                   >
@@ -238,8 +249,8 @@ export default function ProyectosPage() {
                     </div>
                   ) : (
                     projects.map((project, index) => (
-                      <Card 
-                        key={project.PR_IDPROYECTO_PK || `project-${index}`} 
+                      <Card
+                        key={project.PR_IDPROYECTO_PK || `project-${index}`}
                         className="overflow-hidden hover:shadow-lg transition-shadow flex flex-col relative group"
                       >
                         {/* Botón de edición */}
@@ -282,7 +293,7 @@ export default function ProyectosPage() {
                           {/* Project Info - Compacto */}
                           <div className="p-3 flex-1 flex flex-col">
                             <h3 className="text-base font-bold text-slate-900 mb-1 line-clamp-1">{project.PR_NOMBRE}</h3>
-                            
+
                             {project.PR_UBICACION && (
                               <div className="flex items-center gap-1.5 text-xs text-gray-600 mb-2 line-clamp-1">
                                 <MapPin className="w-3 h-3 flex-shrink-0" />
@@ -391,7 +402,7 @@ export default function ProyectosPage() {
 
               <div className="space-y-2">
                 <Label htmlFor="PR_FOTO_PORTADA">Foto de Portada</Label>
-                
+
                 {imagePreview ? (
                   <div className="relative">
                     <div className="relative w-full h-48 rounded-md overflow-hidden border border-gray-300">

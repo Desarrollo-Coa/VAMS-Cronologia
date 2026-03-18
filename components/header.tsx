@@ -86,7 +86,7 @@ export function Header() {
               <span className="text-sm font-bold text-green-500">v0.0.0.1</span>
             </div>
             <Link href="/" className="text-base md:text-lg font-semibold">
-              <span className="hidden sm:inline">Sistema de Gestión de Activos Visuales</span>
+              <span className="hidden sm:inline">Sistema de almacenamiento de fotos aéreas</span>
               <span className="sm:hidden">VAMS</span>
             </Link>
           </div>

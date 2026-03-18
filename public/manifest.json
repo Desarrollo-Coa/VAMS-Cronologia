@@ -1,7 +1,7 @@
 {
-  "name": "VAMS - Sistema de Gestión de Activos Visuales",
+  "name": "VAMS - Sistema de almacenamiento de fotos aéreas",
   "short_name": "VAMS",
-  "description": "Sistema de Gestión de Activos Visuales - Captura la Evolución, Organiza el Cambio",
+  "description": "Sistema de almacenamiento de fotos aéreas - Captura la Evolución, Organiza el Cambio",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",
