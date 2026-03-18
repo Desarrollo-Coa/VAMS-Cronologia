@@ -90,10 +90,12 @@ export default function LoginPage() {
               >
                 <Camera className="w-16 h-16 text-white mb-8" />
 
-                <h1 className="text-4xl lg:text-5xl font-bold tracking-tight text-white leading-tight">
-                  Sistema de <br />
-                  <span className="text-white/80 font-light">almacenamiento de fotos aéreas</span>
+                <h1 className="text-4xl lg:text-5xl font-bold tracking-tight text-white leading-tight uppercase">
+                  S.A.F.A
                 </h1>
+                <p className="text-white/80 font-light text-lg lg:text-xl mt-2">
+                  Sistema de almacenamiento de fotos aéreas
+                </p>
 
                 <div className="h-1.5 w-24 bg-white/30 rounded-full mt-8"></div>
               </motion.div>
