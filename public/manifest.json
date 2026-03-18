@@ -1,6 +1,6 @@
 {
-  "name": "VAMS - Sistema de almacenamiento de fotos aéreas",
-  "short_name": "VAMS",
+  "name": "S.A.F.A - Sistema de almacenamiento de fotos aéreas",
+  "short_name": "S.A.F.A",
   "description": "Sistema de almacenamiento de fotos aéreas - Captura la Evolución, Organiza el Cambio",
   "start_url": "/",
   "display": "standalone",
@@ -27,14 +27,22 @@
       "purpose": "any maskable"
     }
   ],
-  "categories": ["productivity", "business"],
+  "categories": [
+    "productivity",
+    "business"
+  ],
   "shortcuts": [
     {
       "name": "Proyectos",
       "short_name": "Proyectos",
       "description": "Ver todos los proyectos",
       "url": "/proyectos",
-      "icons": [{ "src": "/icon-96x96.png", "sizes": "96x96" }]
+      "icons": [
+        {
+          "src": "/icon-96x96.png",
+          "sizes": "96x96"
+        }
+      ]
     }
   ]
 }

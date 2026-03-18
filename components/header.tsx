@@ -87,7 +87,7 @@ export function Header() {
             </div>
             <Link href="/" className="text-base md:text-lg font-semibold">
               <span className="hidden sm:inline">Sistema de almacenamiento de fotos aéreas</span>
-              <span className="sm:hidden">VAMS</span>
+              <span className="sm:hidden">S.A.F.A</span>
             </Link>
           </div>
 

@@ -63,7 +63,8 @@ function HomePageContent() {
                   />
                   {/* Contenido del texto sobre el gradiente */}
                   <div className="relative z-10 text-white pl-4 sm:pl-8">
-                    <h1 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-bold mb-2 sm:mb-3 text-balance">Sistema de almacenamiento de fotos aéreas</h1>
+                    <h1 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-bold mb-2 sm:mb-3 text-balance uppercase tracking-wider">S.A.F.A</h1>
+                    <h2 className="text-lg sm:text-xl md:text-2xl font-light mb-4 sm:mb-6 text-slate-100">Sistema de almacenamiento de fotos aéreas</h2>
                     <h1 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-normal mb-1 sm:mb-2 text-slate-200">Captura la Evolución.</h1>
                     <h1 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-normal mb-4 sm:mb-6 text-slate-200">Organiza el Cambio.</h1>
 
