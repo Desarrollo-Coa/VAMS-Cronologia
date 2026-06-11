@@ -163,23 +163,38 @@ export default function CategoriaDetailPage() {
     }
   }
 
+  // Helper para extraer fecha sin problemas de timezone
+  const getFechaParts = (fechaStr: string) => {
+    const str = fechaStr.toString();
+    if (str.match(/^\d{4}-\d{2}-\d{2}/)) {
+      return {
+        año: parseInt(str.substring(0, 4)),
+        mes: parseInt(str.substring(5, 7)),
+        dia: parseInt(str.substring(8, 10))
+      };
+    }
+    const fecha = new Date(str);
+    return {
+      año: isNaN(fecha.getFullYear()) ? new Date().getFullYear() : fecha.getFullYear(),
+      mes: isNaN(fecha.getMonth()) ? new Date().getMonth() + 1 : fecha.getMonth() + 1,
+      dia: isNaN(fecha.getDate()) ? new Date().getDate() : fecha.getDate()
+    };
+  };
+
   // Agrupar activos por día
   const activosPorDia: ActivosPorDia[] = activos
     .filter((activo) => {
       if (!activo.AV_FECHA_CAPTURA) return false
       // Si hay un mes seleccionado, filtrar por ese mes
       if (mesSeleccionado !== null) {
-        const fecha = new Date(activo.AV_FECHA_CAPTURA!)
-        return fecha.getMonth() + 1 === mesSeleccionado
+        const { mes } = getFechaParts(activo.AV_FECHA_CAPTURA)
+        return mes === mesSeleccionado
       }
       return true
     })
     .reduce((acc: ActivosPorDia[], activo) => {
-      const fecha = new Date(activo.AV_FECHA_CAPTURA!)
-      const dia = fecha.getDate()
-      const mes = fecha.getMonth() + 1
-      const año = fecha.getFullYear()
-      const mesNombre = meses[mes - 1]
+      const { año, mes, dia } = getFechaParts(activo.AV_FECHA_CAPTURA!)
+      const mesNombre = meses[mes - 1] || ""
       const fechaKey = `${año}-${mes}-${dia}`
 
       const grupoExistente = acc.find((g) => g.fecha === fechaKey)
@@ -208,8 +223,8 @@ export default function CategoriaDetailPage() {
       activos
         .filter((activo) => activo.AV_FECHA_CAPTURA)
         .map((activo) => {
-          const fecha = new Date(activo.AV_FECHA_CAPTURA!)
-          return fecha.getMonth() + 1
+          const { mes } = getFechaParts(activo.AV_FECHA_CAPTURA!)
+          return mes
         })
     )
   )
@@ -425,8 +440,7 @@ export default function CategoriaDetailPage() {
                                   alt={activo.AV_NOMBRE || "Activo visual"}
                                   fill
                                   className="object-cover w-full h-full"
-                                  loading="lazy"
-                                  unoptimized
+                                  sizes="(max-width: 768px) 50vw, (max-width: 1200px) 25vw, 15vw"
                                   onError={() => {
                                     console.error('Error cargando imagen:', activo.AV_URL)
                                     setFailedImages(prev => new Set(prev).add(activo.AV_URL))

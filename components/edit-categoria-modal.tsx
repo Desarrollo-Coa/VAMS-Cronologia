@@ -80,6 +80,7 @@ export function EditCategoriaModal({
         },
         credentials: "include",
         body: JSON.stringify({
+          ...categoria,
           CT_NOMBRE: nombre.trim(),
           CT_DESCRIPCION: descripcion.trim() || null,
           CT_ICONO: icono,

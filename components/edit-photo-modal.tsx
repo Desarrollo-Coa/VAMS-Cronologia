@@ -49,11 +49,26 @@ export function EditPhotoModal({
       setDescripcion(activo.AV_DESCRIPCION || "")
       // Convertir fecha a formato YYYY-MM-DD para el input type="date"
       if (activo.AV_FECHA_CAPTURA) {
-        const fecha = new Date(activo.AV_FECHA_CAPTURA)
-        const year = fecha.getFullYear()
-        const month = String(fecha.getMonth() + 1).padStart(2, '0')
-        const day = String(fecha.getDate()).padStart(2, '0')
-        setFechaCaptura(`${year}-${month}-${day}`)
+        try {
+          const fechaStr = activo.AV_FECHA_CAPTURA.toString()
+          // Si tiene formato YYYY-MM-DD al inicio, usar eso directamente
+          if (fechaStr.match(/^\d{4}-\d{2}-\d{2}/)) {
+            setFechaCaptura(fechaStr.substring(0, 10))
+          } else {
+            // Fallback: parsear fecha y ajustar por timezone offset
+            const fecha = new Date(fechaStr)
+            if (!isNaN(fecha.getTime())) {
+              const year = fecha.getFullYear()
+              const month = String(fecha.getMonth() + 1).padStart(2, '0')
+              const day = String(fecha.getDate()).padStart(2, '0')
+              setFechaCaptura(`${year}-${month}-${day}`)
+            } else {
+              setFechaCaptura("")
+            }
+          }
+        } catch {
+          setFechaCaptura("")
+        }
       } else {
         setFechaCaptura("")
       }
@@ -75,6 +90,7 @@ export function EditPhotoModal({
         },
         credentials: "include",
         body: JSON.stringify({
+          ...activo,
           AV_NOMBRE: nombre.trim() || null,
           AV_DESCRIPCION: descripcion.trim() || null,
           AV_FECHA_CAPTURA: fechaCaptura || null,

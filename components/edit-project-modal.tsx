@@ -184,6 +184,7 @@ export function EditProjectModal({
       setError(null)
 
       const payload = {
+        ...proyecto,
         PR_NOMBRE: nombre.trim(),
         PR_UBICACION: ubicacion.trim() || null,
         PR_DESCRIPCION: descripcion.trim() || null,
