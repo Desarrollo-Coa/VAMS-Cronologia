@@ -65,7 +65,7 @@ export default function UploadPhotosPage() {
           if (negResponse.ok) {
             const negData = await negResponse.json()
             const negocio = negData.find((n: any) => n.NG_IDNEGOCIO_PK === proyectoEncontrado.NG_IDNEGOCIO_FK)
-            if (!negocio || (negocio.PERMISO_USUARIO !== ''ADMIN'' && negocio.PERMISO_USUARIO !== ''ESCRITURA'')) {
+            if (!negocio || (negocio.PERMISO_USUARIO !== 'ADMIN' && negocio.PERMISO_USUARIO !== 'ESCRITURA')) {
               router.push(`/proyectos/${projectId}`)
             }
           }

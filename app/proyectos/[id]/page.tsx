@@ -307,7 +307,7 @@ export default function ProyectoDetailPage() {
   }
 
   const canEdit = user?.RL_IDROL_FK === 1 || 
-                  (user?.RL_IDROL_FK === 2 && (negocioPermiso === ''ADMIN'' || negocioPermiso === ''ESCRITURA''));
+                  (user?.RL_IDROL_FK === 2 && (negocioPermiso === 'ADMIN' || negocioPermiso === 'ESCRITURA'));
 
   if (loadingCategorias && !proyecto) {
     return (
