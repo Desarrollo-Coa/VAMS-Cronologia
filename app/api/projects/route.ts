@@ -119,6 +119,7 @@ export async function GET(request: NextRequest) {
     // ORDS devuelve los campos en minúsculas, transformarlos a mayúsculas para el frontend
     const transformedProjects = projects.map((project: any) => ({
       PR_IDPROYECTO_PK: project.pr_idproyecto_pk || project.PR_IDPROYECTO_PK,
+      NG_IDNEGOCIO_FK: project.ng_idnegocio_fk || project.NG_IDNEGOCIO_FK,
       PR_NOMBRE: project.pr_nombre || project.PR_NOMBRE,
       PR_UBICACION: project.pr_ubicacion || project.PR_UBICACION,
       PR_FOTO_PORTADA_URL: project.pr_foto_portada_url || project.PR_FOTO_PORTADA_URL,

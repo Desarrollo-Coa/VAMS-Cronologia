@@ -2,14 +2,15 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Home, FolderOpen } from "lucide-react"
+import { Home, FolderOpen, Users } from "lucide-react"
+import { getCurrentUserClient } from "@/lib/auth"
 // Iconos comentados para futuras funcionalidades:
 // import { ImageIcon, GitCompare, Upload, Settings } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 const menuItems = [
   { icon: Home, label: "Inicio", href: "/" },
-  { icon: FolderOpen, label: "Proyectos", href: "/proyectos" },
+  { icon: FolderOpen, label: "Negocios", href: "/proyectos" },
   // Ocultas temporalmente hasta que se implementen las páginas
   // { icon: ImageIcon, label: "Activos Visuales", href: "/activos-visuales" },
   // { icon: GitCompare, label: "Comparaciones", href: "/comparaciones" },
@@ -23,10 +24,16 @@ interface SidebarProps {
 
 export function Sidebar({ onItemClick }: SidebarProps) {
   const pathname = usePathname()
+  const user = getCurrentUserClient()
+
+  const items = [...menuItems]
+  if (user?.RL_IDROL_FK === 1) {
+    items.push({ icon: Users, label: "Usuarios", href: "/usuarios" })
+  }
 
   return (
     <aside className="hidden md:flex w-52 bg-gray-50 border-r border-gray-200 flex-col py-6">
-      {menuItems.map((item) => {
+      {items.map((item) => {
         const Icon = item.icon
         const isActive = pathname === item.href || (item.href === "/" && pathname === "/")
         return (

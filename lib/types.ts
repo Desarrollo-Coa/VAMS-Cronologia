@@ -1,7 +1,15 @@
 // Types based on the database schema
 
+export interface Negocio {
+  NG_IDNEGOCIO_PK: number
+  NG_NOMBRE: string
+  NG_ACTIVO?: string
+  PERMISO_USUARIO?: string
+}
+
 export interface Project {
   PR_IDPROYECTO_PK: number
+  NG_IDNEGOCIO_FK?: number
   PR_NOMBRE: string
   PR_DESCRIPCION: string
   PR_UBICACION: string

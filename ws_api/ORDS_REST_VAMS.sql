@@ -329,6 +329,157 @@ END;');
 
   ORDS.DEFINE_TEMPLATE(
       p_module_name    => 'vams/',
+      p_pattern        => 'negocios',
+      p_priority       => 0,
+      p_etag_type      => 'HASH',
+      p_etag_query     => NULL,
+      p_comments       => NULL);
+
+  ORDS.DEFINE_HANDLER(
+      p_module_name    => 'vams/',
+      p_pattern        => 'negocios',
+      p_method         => 'GET',
+      p_source_type    => ords.source_type_collection_feed,
+      p_items_per_page => 25,
+      p_mimes_allowed  => NULL,
+      p_comments       => NULL,
+      p_source         => q'[
+SELECT 
+    n.NG_IDNEGOCIO_PK,
+    n.NG_NOMBRE,
+    n.NG_ACTIVO,
+    (CASE 
+        WHEN (SELECT u.RL_IDROL_FK FROM VMS_USUARIO u JOIN VMS_TOKEN_API t ON t.US_IDUSUARIO_FK = u.US_IDUSUARIO_PK WHERE t.TA_TOKEN = :x_api_token AND t.TA_ACTIVO = 'SI') = 1 THEN 'ADMIN'
+        WHEN (SELECT u.RL_IDROL_FK FROM VMS_USUARIO u JOIN VMS_TOKEN_API t ON t.US_IDUSUARIO_FK = u.US_IDUSUARIO_PK WHERE t.TA_TOKEN = :x_api_token AND t.TA_ACTIVO = 'SI') = 2 THEN 'ESCRITURA'
+        ELSE 'LECTURA'
+    END) AS PERMISO_USUARIO
+FROM VMS_NEGOCIO n
+WHERE n.NG_ACTIVO = 'SI'
+  AND (
+      -- Es admin
+      (SELECT u.RL_IDROL_FK FROM VMS_USUARIO u JOIN VMS_TOKEN_API t ON t.US_IDUSUARIO_FK = u.US_IDUSUARIO_PK WHERE t.TA_TOKEN = :x_api_token AND t.TA_ACTIVO = 'SI') = 1
+      OR
+      -- O está asignado al negocio
+      EXISTS (
+          SELECT 1 
+          FROM VMS_USUARIO_NEGOCIO un JOIN VMS_TOKEN_API t ON un.US_IDUSUARIO_FK = t.US_IDUSUARIO_FK
+          WHERE un.NG_IDNEGOCIO_FK = n.NG_IDNEGOCIO_PK
+            AND t.TA_TOKEN = :x_api_token
+            AND un.UN_ACTIVO = 'SI'
+            AND t.TA_ACTIVO = 'SI'
+      )
+  )
+]');
+
+  ORDS.DEFINE_PARAMETER(
+      p_module_name        => 'vams/',
+      p_pattern            => 'negocios',
+      p_method             => 'GET',
+      p_name               => 'X-API-Token',
+      p_bind_variable_name => 'x_api_token',
+      p_source_type        => 'HEADER',
+      p_param_type         => 'STRING',
+      p_access_method      => 'IN',
+      p_comments           => NULL);
+
+  ORDS.DEFINE_HANDLER(
+      p_module_name    => 'vams/',
+      p_pattern        => 'negocios',
+      p_method         => 'POST',
+      p_source_type    => ords.source_type_plsql,
+      p_items_per_page => 0,
+      p_mimes_allowed  => '',
+      p_comments       => NULL,
+      p_source         => q'[
+DECLARE
+    V_NEGOCIO_ID NUMBER;
+    V_IS_ADMIN NUMBER;
+BEGIN
+    -- Validar Permisos (Solo ADMIN)
+    SELECT COUNT(*) INTO V_IS_ADMIN 
+    FROM VMS_USUARIO u JOIN VMS_TOKEN_API t ON u.US_IDUSUARIO_PK = t.US_IDUSUARIO_FK
+    WHERE t.TA_TOKEN = :x_api_token AND t.TA_ACTIVO = 'SI' AND u.RL_IDROL_FK = 1;
+    
+    IF V_IS_ADMIN = 0 THEN
+        :success := 'false';
+        :message := 'No tienes permiso para crear negocios (Solo Administradores)';
+        :negocio_id := 0;
+        RETURN;
+    END IF;
+
+    -- Obtener siguiente ID
+    SELECT NVL(MAX(NG_IDNEGOCIO_PK), 0) + 1 INTO V_NEGOCIO_ID FROM VMS_NEGOCIO;
+    
+    INSERT INTO VMS_NEGOCIO (
+        NG_IDNEGOCIO_PK,
+        NG_NOMBRE,
+        NG_ACTIVO
+    ) VALUES (
+        V_NEGOCIO_ID,
+        :ng_nombre,
+        'SI'
+    );
+    
+    COMMIT;
+    
+    :success := 'true';
+    :message := 'Negocio creado exitosamente';
+    :negocio_id := V_NEGOCIO_ID;
+EXCEPTION
+    WHEN OTHERS THEN
+        ROLLBACK;
+        :success := 'false';
+        :message := 'Error: ' || SQLERRM;
+        :negocio_id := 0;
+END;
+]');
+
+  ORDS.DEFINE_PARAMETER(
+      p_module_name        => 'vams/',
+      p_pattern            => 'negocios',
+      p_method             => 'POST',
+      p_name               => 'X-API-Token',
+      p_bind_variable_name => 'x_api_token',
+      p_source_type        => 'HEADER',
+      p_param_type         => 'STRING',
+      p_access_method      => 'IN',
+      p_comments           => NULL);
+
+  ORDS.DEFINE_PARAMETER(
+      p_module_name        => 'vams/',
+      p_pattern            => 'negocios',
+      p_method             => 'POST',
+      p_name               => 'success',
+      p_bind_variable_name => 'success',
+      p_source_type        => 'RESPONSE',
+      p_param_type         => 'STRING',
+      p_access_method      => 'OUT',
+      p_comments           => NULL);
+
+  ORDS.DEFINE_PARAMETER(
+      p_module_name        => 'vams/',
+      p_pattern            => 'negocios',
+      p_method             => 'POST',
+      p_name               => 'message',
+      p_bind_variable_name => 'message',
+      p_source_type        => 'RESPONSE',
+      p_param_type         => 'STRING',
+      p_access_method      => 'OUT',
+      p_comments           => NULL);
+
+  ORDS.DEFINE_PARAMETER(
+      p_module_name        => 'vams/',
+      p_pattern            => 'negocios',
+      p_method             => 'POST',
+      p_name               => 'negocio_id',
+      p_bind_variable_name => 'negocio_id',
+      p_source_type        => 'RESPONSE',
+      p_param_type         => 'INT',
+      p_access_method      => 'OUT',
+      p_comments           => NULL);
+
+  ORDS.DEFINE_TEMPLATE(
+      p_module_name    => 'vams/',
       p_pattern        => 'proyectos',
       p_priority       => 0,
       p_etag_type      => 'HASH',
@@ -345,18 +496,45 @@ END;');
       p_comments       => NULL,
       p_source         => q'[
 SELECT 
-    PR_IDPROYECTO_PK,
-    PR_NOMBRE,
-    PR_UBICACION,
-    PR_FOTO_PORTADA_URL,
-    TO_CHAR(PR_FECHA_INICIO, 'YYYY-MM-DD') AS PR_FECHA_INICIO,
-    TO_CHAR(PR_FECHA_FIN, 'YYYY-MM-DD') AS PR_FECHA_FIN,
-    PR_ACTIVO,
-    NVL(TOTAL_ACTIVOS, 0) AS TOTAL_ACTIVOS,
-    NVL(TOTAL_CATEGORIAS, 0) AS TOTAL_CATEGORIAS,
-    NVL(TO_CHAR(ULTIMA_ACTUALIZACION, 'YYYY-MM-DD'), '') AS ULTIMA_ACTUALIZACION
-FROM V_PROYECTO_RESUMEN
+    p.PR_IDPROYECTO_PK,
+    p.NG_IDNEGOCIO_FK,
+    p.PR_NOMBRE,
+    p.PR_UBICACION,
+    p.PR_FOTO_PORTADA_URL,
+    TO_CHAR(p.PR_FECHA_INICIO, 'YYYY-MM-DD') AS PR_FECHA_INICIO,
+    TO_CHAR(p.PR_FECHA_FIN, 'YYYY-MM-DD') AS PR_FECHA_FIN,
+    p.PR_ACTIVO,
+    NVL(p.TOTAL_ACTIVOS, 0) AS TOTAL_ACTIVOS,
+    NVL(p.TOTAL_CATEGORIAS, 0) AS TOTAL_CATEGORIAS,
+    NVL(TO_CHAR(p.ULTIMA_ACTUALIZACION, 'YYYY-MM-DD'), '') AS ULTIMA_ACTUALIZACION
+FROM V_PROYECTO_RESUMEN p
+WHERE p.PR_ACTIVO = 'SI'
+  AND (
+      -- Es admin
+      (SELECT u.RL_IDROL_FK FROM VMS_USUARIO u JOIN VMS_TOKEN_API t ON t.US_IDUSUARIO_FK = u.US_IDUSUARIO_PK WHERE t.TA_TOKEN = :x_api_token AND t.TA_ACTIVO = 'SI') = 1
+      OR
+      -- O está asignado al negocio del proyecto
+      EXISTS (
+          SELECT 1 
+          FROM VMS_USUARIO_NEGOCIO un JOIN VMS_TOKEN_API t ON un.US_IDUSUARIO_FK = t.US_IDUSUARIO_FK
+          WHERE un.NG_IDNEGOCIO_FK = p.NG_IDNEGOCIO_FK
+            AND t.TA_TOKEN = :x_api_token
+            AND un.UN_ACTIVO = 'SI'
+            AND t.TA_ACTIVO = 'SI'
+      )
+  )
 ]');
+
+  ORDS.DEFINE_PARAMETER(
+      p_module_name        => 'vams/',
+      p_pattern            => 'proyectos',
+      p_method             => 'GET',
+      p_name               => 'X-API-Token',
+      p_bind_variable_name => 'x_api_token',
+      p_source_type        => 'HEADER',
+      p_param_type         => 'STRING',
+      p_access_method      => 'IN',
+      p_comments           => NULL);
 
   ORDS.DEFINE_HANDLER(
       p_module_name    => 'vams/',
@@ -368,6 +546,7 @@ FROM V_PROYECTO_RESUMEN
       p_source         => 
 'DECLARE
   L_PO  BLOB := :body;
+  V_NEGOCIO_ID NUMBER;
   V_NOMBRE VARCHAR2(200);
   V_DESCRIPCION VARCHAR2(500);
   V_UBICACION VARCHAR2(200);
@@ -375,9 +554,12 @@ FROM V_PROYECTO_RESUMEN
   V_FECHA_FIN DATE;
   V_FOTO_PORTADA_URL VARCHAR2(500);
   V_PROYECTO_ID NUMBER;
+  V_IS_ADMIN NUMBER;
+  V_HAS_PERMISSION NUMBER;
 BEGIN
     -- Extraer datos del JSON
     SELECT 
+        jt.NG_IDNEGOCIO_FK,
         jt.PR_NOMBRE,
         jt.PR_DESCRIPCION,
         jt.PR_UBICACION,
@@ -385,6 +567,7 @@ BEGIN
         TO_DATE(jt.PR_FECHA_FIN, ''YYYY-MM-DD''),
         jt.PR_FOTO_PORTADA_URL
     INTO 
+        V_NEGOCIO_ID,
         V_NOMBRE,
         V_DESCRIPCION,
         V_UBICACION,
@@ -393,6 +576,7 @@ BEGIN
         V_FOTO_PORTADA_URL
     FROM JSON_TABLE(L_PO FORMAT JSON, ''$''
              COLUMNS (
+               NG_IDNEGOCIO_FK NUMBER PATH ''$.NG_IDNEGOCIO_FK'',
                PR_NOMBRE VARCHAR2(200) PATH ''$.PR_NOMBRE'',
                PR_DESCRIPCION VARCHAR2(500) PATH ''$.PR_DESCRIPCION'',
                PR_UBICACION VARCHAR2(200) PATH ''$.PR_UBICACION'',
@@ -407,6 +591,32 @@ BEGIN
         :proyecto_id := 0;
         RETURN;
     END IF;
+
+    IF V_NEGOCIO_ID IS NULL THEN
+        :success := ''false'';
+        :message := ''El ID del negocio es requerido'';
+        :proyecto_id := 0;
+        RETURN;
+    END IF;
+    
+    -- Validar Permisos
+    SELECT COUNT(*) INTO V_IS_ADMIN 
+    FROM VMS_USUARIO u JOIN VMS_TOKEN_API t ON u.US_IDUSUARIO_PK = t.US_IDUSUARIO_FK
+    WHERE t.TA_TOKEN = :x_api_token AND t.TA_ACTIVO = ''SI'' AND u.RL_IDROL_FK = 1;
+    
+    IF V_IS_ADMIN = 0 THEN
+        SELECT COUNT(*) INTO V_HAS_PERMISSION
+        FROM VMS_USUARIO_NEGOCIO un JOIN VMS_TOKEN_API t ON un.US_IDUSUARIO_FK = t.US_IDUSUARIO_FK
+        JOIN VMS_USUARIO u ON u.US_IDUSUARIO_PK = un.US_IDUSUARIO_FK
+        WHERE un.NG_IDNEGOCIO_FK = V_NEGOCIO_ID AND t.TA_TOKEN = :x_api_token AND un.UN_ACTIVO = ''SI'' AND t.TA_ACTIVO = ''SI'' AND u.RL_IDROL_FK = 2;
+        
+        IF V_HAS_PERMISSION = 0 THEN
+            :success := ''false'';
+            :message := ''No tienes permiso para crear proyectos en este negocio'';
+            :proyecto_id := 0;
+            RETURN;
+        END IF;
+    END IF;
     
     -- Obtener nuevo ID
     SELECT SEQ_VMS_PROYECTO.NEXTVAL INTO V_PROYECTO_ID FROM DUAL;
@@ -414,6 +624,7 @@ BEGIN
     -- Insertar proyecto
     INSERT INTO VMS_PROYECTO (
         PR_IDPROYECTO_PK,
+        NG_IDNEGOCIO_FK,
         PR_NOMBRE,
         PR_DESCRIPCION,
         PR_UBICACION,
@@ -423,6 +634,7 @@ BEGIN
         PR_ACTIVO
     ) VALUES (
         V_PROYECTO_ID,
+        V_NEGOCIO_ID,
         V_NOMBRE,
         V_DESCRIPCION,
         V_UBICACION,
@@ -445,6 +657,17 @@ EXCEPTION
         :message := ''Error al crear proyecto: '' || SUBSTR(SQLERRM, 1, 200);
         :proyecto_id := 0;
 END;');
+
+  ORDS.DEFINE_PARAMETER(
+      p_module_name        => 'vams/',
+      p_pattern            => 'proyectos',
+      p_method             => 'POST',
+      p_name               => 'X-API-Token',
+      p_bind_variable_name => 'x_api_token',
+      p_source_type        => 'HEADER',
+      p_param_type         => 'STRING',
+      p_access_method      => 'IN',
+      p_comments           => NULL);
 
   ORDS.DEFINE_PARAMETER(
       p_module_name        => 'vams/',
@@ -1219,32 +1442,24 @@ BEGIN
     -- Obtener token del header
     V_TOKEN := :x_api_token;
     
-    -- Validar relaciones: verificar si tiene categorías activas
-    SELECT COUNT(*) INTO V_CATEGORIAS_COUNT
-    FROM VMS_CATEGORIA
-    WHERE PR_IDPROYECTO_FK = V_PROYECTO_ID
-      AND CT_ACTIVO = ''SI'';
-    
-    -- Validar relaciones: verificar si tiene activos visuales activos
+    -- Validar si tiene activos visuales (fotos) activos
     SELECT COUNT(*) INTO V_ACTIVOS_COUNT
     FROM VMS_ACTIVO_VISUAL
     WHERE PR_IDPROYECTO_FK = V_PROYECTO_ID
       AND AV_ACTIVO = ''SI'';
-    
-    -- Si tiene relaciones activas, no permitir eliminación
-    IF V_CATEGORIAS_COUNT > 0 OR V_ACTIVOS_COUNT > 0 THEN
+
+    -- Si tiene activos visuales (fotos) activas, no permitir eliminación
+    IF V_ACTIVOS_COUNT > 0 THEN
         :success := ''false'';
-        :message := ''No se puede eliminar el proyecto porque tiene '' || 
-                    CASE 
-                        WHEN V_CATEGORIAS_COUNT > 0 AND V_ACTIVOS_COUNT > 0 THEN
-                            V_CATEGORIAS_COUNT || '' categoría(s) y '' || V_ACTIVOS_COUNT || '' foto(s) asociadas''
-                        WHEN V_CATEGORIAS_COUNT > 0 THEN
-                            V_CATEGORIAS_COUNT || '' categoría(s) asociada(s)''
-                        ELSE
-                            V_ACTIVOS_COUNT || '' foto(s) asociada(s)''
-                    END || ''. Elimine primero las categorías y fotos asociadas.'';
+        :message := ''No se puede eliminar el proyecto porque tiene '' || V_ACTIVOS_COUNT || '' foto(s) asociada(s). Elimine primero las fotos.'';
         RETURN;
     END IF;
+    
+    -- Realizar soft delete en cascada de las categorías (ya sabemos que están vacías porque V_ACTIVOS_COUNT es 0)
+    UPDATE VMS_CATEGORIA
+    SET CT_ACTIVO = ''NO''
+    WHERE PR_IDPROYECTO_FK = V_PROYECTO_ID
+      AND CT_ACTIVO = ''SI'';
     
     -- Marcar proyecto como inactivo (soft delete) - Simple UPDATE WHERE id = id
     UPDATE VMS_PROYECTO
@@ -1767,6 +1982,469 @@ END;');
       p_comments           => NULL);
 
     
+        
+  -- ===================================================
+  -- ENDPOINTS PARA GESTIÓN DE USUARIOS
+  -- ===================================================
+
+  ORDS.DEFINE_TEMPLATE(
+      p_module_name    => 'vams/',
+      p_pattern        => 'usuarios',
+      p_priority       => 0,
+      p_etag_type      => 'HASH',
+      p_etag_query     => NULL,
+      p_comments       => NULL);
+
+  ORDS.DEFINE_HANDLER(
+      p_module_name    => 'vams/',
+      p_pattern        => 'usuarios',
+      p_method         => 'GET',
+      p_source_type    => ords.source_type_collection_feed,
+      p_items_per_page => 100,
+      p_mimes_allowed  => NULL,
+      p_comments       => NULL,
+      p_source         => q'[
+SELECT 
+    u.US_IDUSUARIO_PK,
+    u.US_NOMBRE,
+    u.US_CORREO,
+    u.US_TELEFONO,
+    u.US_USUARIO,
+    u.RL_IDROL_FK,
+    (SELECT LISTAGG(un.NG_IDNEGOCIO_FK, ',') WITHIN GROUP (ORDER BY un.NG_IDNEGOCIO_FK)
+     FROM VMS_USUARIO_NEGOCIO un
+     WHERE un.US_IDUSUARIO_FK = u.US_IDUSUARIO_PK AND un.UN_ACTIVO = 'SI') as NEGOCIOS_IDS
+FROM VMS_USUARIO u
+WHERE u.US_ACTIVO = 'SI'
+  AND (SELECT COUNT(*) FROM VMS_TOKEN_API t JOIN VMS_USUARIO tu ON tu.US_IDUSUARIO_PK = t.US_IDUSUARIO_FK 
+       WHERE t.TA_TOKEN = :x_api_token AND t.TA_ACTIVO = 'SI' AND tu.RL_IDROL_FK = 1) > 0
+]');
+
+  ORDS.DEFINE_PARAMETER(
+      p_module_name        => 'vams/',
+      p_pattern            => 'usuarios',
+      p_method             => 'GET',
+      p_name               => 'X-API-Token',
+      p_bind_variable_name => 'x_api_token',
+      p_source_type        => 'HEADER',
+      p_param_type         => 'STRING',
+      p_access_method      => 'IN',
+      p_comments           => NULL);
+
+  ORDS.DEFINE_HANDLER(
+      p_module_name    => 'vams/',
+      p_pattern        => 'usuarios',
+      p_method         => 'POST',
+      p_source_type    => ords.source_type_plsql,
+      p_items_per_page => 0,
+      p_mimes_allowed  => '',
+      p_comments       => NULL,
+      p_source         => q'[
+DECLARE
+    V_IS_ADMIN NUMBER;
+    V_NEW_ID NUMBER;
+    L_PO BLOB := :body;
+    V_ROL_ID NUMBER;
+    V_NOMBRE VARCHAR2(100);
+    V_CORREO VARCHAR2(100);
+    V_TELEFONO VARCHAR2(20);
+    V_USUARIO_LOGIN VARCHAR2(50);
+    V_CONTRASENA VARCHAR2(255);
+BEGIN
+    SELECT jt.rol_id, jt.nombre, jt.correo, jt.telefono, jt.usuario_login, jt.contrasena
+    INTO V_ROL_ID, V_NOMBRE, V_CORREO, V_TELEFONO, V_USUARIO_LOGIN, V_CONTRASENA
+    FROM JSON_TABLE(L_PO FORMAT JSON, '$'
+             COLUMNS (
+               rol_id NUMBER PATH '$.rol_id',
+               nombre VARCHAR2 PATH '$.nombre',
+               correo VARCHAR2 PATH '$.correo',
+               telefono VARCHAR2 PATH '$.telefono',
+               usuario_login VARCHAR2 PATH '$.usuario_login',
+               contrasena VARCHAR2 PATH '$.contrasena'
+             )) jt;
+
+    SELECT COUNT(*) INTO V_IS_ADMIN 
+    FROM VMS_USUARIO u JOIN VMS_TOKEN_API t ON u.US_IDUSUARIO_PK = t.US_IDUSUARIO_FK
+    WHERE t.TA_TOKEN = :x_api_token AND t.TA_ACTIVO = 'SI' AND u.RL_IDROL_FK = 1;
+    
+    IF V_IS_ADMIN = 0 THEN
+        :success := 'false';
+        :message := 'Solo un Administrador puede crear usuarios';
+        RETURN;
+    END IF;
+
+    SELECT NVL(MAX(US_IDUSUARIO_PK), 0) + 1 INTO V_NEW_ID FROM VMS_USUARIO;
+
+    INSERT INTO VMS_USUARIO (
+        US_IDUSUARIO_PK, RL_IDROL_FK, US_NOMBRE, US_CORREO, US_TELEFONO, US_USUARIO, US_CONTRASENA, US_ACTIVO
+    ) VALUES (
+        V_NEW_ID, V_ROL_ID, V_NOMBRE, V_CORREO, V_TELEFONO, V_USUARIO_LOGIN, UPPER(RAWTOHEX(STANDARD_HASH(V_CONTRASENA, 'MD5'))), 'SI'
+    );
+    
+    COMMIT;
+    :success := 'true';
+    :message := 'Usuario creado exitosamente';
+EXCEPTION
+    WHEN DUP_VAL_ON_INDEX THEN
+        ROLLBACK;
+        :success := 'false';
+        :message := 'Error: El correo o el nombre de usuario ya existen.';
+    WHEN OTHERS THEN
+        ROLLBACK;
+        :success := 'false';
+        :message := 'Error: ' || SQLERRM;
+END;
+]');
+
+  ORDS.DEFINE_PARAMETER(
+      p_module_name        => 'vams/',
+      p_pattern            => 'usuarios',
+      p_method             => 'POST',
+      p_name               => 'X-API-Token',
+      p_bind_variable_name => 'x_api_token',
+      p_source_type        => 'HEADER',
+      p_param_type         => 'STRING',
+      p_access_method      => 'IN',
+      p_comments           => NULL);
+
+  ORDS.DEFINE_PARAMETER(
+      p_module_name        => 'vams/',
+      p_pattern            => 'usuarios',
+      p_method             => 'POST',
+      p_name               => 'success',
+      p_bind_variable_name => 'success',
+      p_source_type        => 'RESPONSE',
+      p_param_type         => 'STRING',
+      p_access_method      => 'OUT',
+      p_comments           => NULL);
+
+  ORDS.DEFINE_PARAMETER(
+      p_module_name        => 'vams/',
+      p_pattern            => 'usuarios',
+      p_method             => 'POST',
+      p_name               => 'message',
+      p_bind_variable_name => 'message',
+      p_source_type        => 'RESPONSE',
+      p_param_type         => 'STRING',
+      p_access_method      => 'OUT',
+      p_comments           => NULL);
+
+  ORDS.DEFINE_TEMPLATE(
+      p_module_name    => 'vams/',
+      p_pattern        => 'usuarios/:usuario_id',
+      p_priority       => 0,
+      p_etag_type      => 'HASH',
+      p_etag_query     => NULL,
+      p_comments       => NULL);
+
+  ORDS.DEFINE_HANDLER(
+      p_module_name    => 'vams/',
+      p_pattern        => 'usuarios/:usuario_id',
+      p_method         => 'PUT',
+      p_source_type    => ords.source_type_plsql,
+      p_items_per_page => 0,
+      p_mimes_allowed  => '',
+      p_comments       => NULL,
+      p_source         => q'[
+DECLARE
+    V_IS_ADMIN NUMBER;
+    V_TARGET_USER NUMBER;
+    L_PO BLOB := :body;
+    V_ROL_ID NUMBER;
+    V_NOMBRE VARCHAR2(100);
+    V_CORREO VARCHAR2(100);
+    V_TELEFONO VARCHAR2(20);
+    V_USUARIO_LOGIN VARCHAR2(50);
+    V_CONTRASENA VARCHAR2(255);
+BEGIN
+    SELECT jt.rol_id, jt.nombre, jt.correo, jt.telefono, jt.usuario_login, jt.contrasena
+    INTO V_ROL_ID, V_NOMBRE, V_CORREO, V_TELEFONO, V_USUARIO_LOGIN, V_CONTRASENA
+    FROM JSON_TABLE(L_PO FORMAT JSON, '$'
+             COLUMNS (
+               rol_id NUMBER PATH '$.rol_id',
+               nombre VARCHAR2 PATH '$.nombre',
+               correo VARCHAR2 PATH '$.correo',
+               telefono VARCHAR2 PATH '$.telefono',
+               usuario_login VARCHAR2 PATH '$.usuario_login',
+               contrasena VARCHAR2 PATH '$.contrasena'
+             )) jt;
+
+    -- Verificar que el token pertenezca a un Admin (rol 1)
+    SELECT COUNT(*) INTO V_IS_ADMIN 
+    FROM VMS_USUARIO u JOIN VMS_TOKEN_API t ON u.US_IDUSUARIO_PK = t.US_IDUSUARIO_FK
+    WHERE t.TA_TOKEN = :x_api_token AND t.TA_ACTIVO = 'SI' AND u.RL_IDROL_FK = 1;
+    
+    IF V_IS_ADMIN = 0 THEN
+        :success := 'false';
+        :message := 'Solo un Administrador puede actualizar usuarios';
+        RETURN;
+    END IF;
+
+    -- Prevenir auto-edición de rol
+    SELECT u.US_IDUSUARIO_PK INTO V_TARGET_USER 
+    FROM VMS_USUARIO u JOIN VMS_TOKEN_API t ON u.US_IDUSUARIO_PK = t.US_IDUSUARIO_FK
+    WHERE t.TA_TOKEN = :x_api_token AND t.TA_ACTIVO = 'SI';
+
+    IF V_TARGET_USER = :usuario_id AND V_ROL_ID != 1 THEN
+        :success := 'false';
+        :message := 'Por seguridad, no puedes quitarte tu propio rol de administrador';
+        RETURN;
+    END IF;
+
+    IF V_CONTRASENA IS NOT NULL AND TRIM(V_CONTRASENA) IS NOT NULL THEN
+        UPDATE VMS_USUARIO
+        SET RL_IDROL_FK = NVL(V_ROL_ID, RL_IDROL_FK),
+            US_NOMBRE = NVL(V_NOMBRE, US_NOMBRE),
+            US_CORREO = NVL(V_CORREO, US_CORREO),
+            US_USUARIO = NVL(V_USUARIO_LOGIN, US_USUARIO),
+            US_TELEFONO = NVL(V_TELEFONO, US_TELEFONO),
+            US_CONTRASENA = UPPER(RAWTOHEX(STANDARD_HASH(V_CONTRASENA, 'MD5')))
+        WHERE US_IDUSUARIO_PK = :usuario_id;
+    ELSE
+        UPDATE VMS_USUARIO
+        SET RL_IDROL_FK = NVL(V_ROL_ID, RL_IDROL_FK),
+            US_NOMBRE = NVL(V_NOMBRE, US_NOMBRE),
+            US_CORREO = NVL(V_CORREO, US_CORREO),
+            US_USUARIO = NVL(V_USUARIO_LOGIN, US_USUARIO),
+            US_TELEFONO = NVL(V_TELEFONO, US_TELEFONO)
+        WHERE US_IDUSUARIO_PK = :usuario_id;
+    END IF;
+    
+    COMMIT;
+    :success := 'true';
+    :message := 'Usuario actualizado exitosamente';
+EXCEPTION
+    WHEN OTHERS THEN
+        ROLLBACK;
+        :success := 'false';
+        :message := 'Error: ' || SQLERRM;
+END;
+]');
+
+  ORDS.DEFINE_PARAMETER(
+      p_module_name        => 'vams/',
+      p_pattern            => 'usuarios/:usuario_id',
+      p_method             => 'PUT',
+      p_name               => 'X-API-Token',
+      p_bind_variable_name => 'x_api_token',
+      p_source_type        => 'HEADER',
+      p_param_type         => 'STRING',
+      p_access_method      => 'IN',
+      p_comments           => NULL);
+
+  ORDS.DEFINE_PARAMETER(
+      p_module_name        => 'vams/',
+      p_pattern            => 'usuarios/:usuario_id',
+      p_method             => 'PUT',
+      p_name               => 'success',
+      p_bind_variable_name => 'success',
+      p_source_type        => 'RESPONSE',
+      p_param_type         => 'STRING',
+      p_access_method      => 'OUT',
+      p_comments           => NULL);
+
+  ORDS.DEFINE_PARAMETER(
+      p_module_name        => 'vams/',
+      p_pattern            => 'usuarios/:usuario_id',
+      p_method             => 'PUT',
+      p_name               => 'message',
+      p_bind_variable_name => 'message',
+      p_source_type        => 'RESPONSE',
+      p_param_type         => 'STRING',
+      p_access_method      => 'OUT',
+      p_comments           => NULL);
+
+
+  ORDS.DEFINE_TEMPLATE(
+      p_module_name    => 'vams/',
+      p_pattern        => 'usuarios/:usuario_id/negocios',
+      p_priority       => 0,
+      p_etag_type      => 'HASH',
+      p_etag_query     => NULL,
+      p_comments       => NULL);
+
+  ORDS.DEFINE_HANDLER(
+      p_module_name    => 'vams/',
+      p_pattern        => 'usuarios/:usuario_id/negocios',
+      p_method         => 'POST',
+      p_source_type    => ords.source_type_plsql,
+      p_items_per_page => 0,
+      p_mimes_allowed  => '',
+      p_comments       => NULL,
+      p_source         => q'[
+DECLARE
+    V_IS_ADMIN NUMBER;
+BEGIN
+    SELECT COUNT(*) INTO V_IS_ADMIN 
+    FROM VMS_USUARIO u JOIN VMS_TOKEN_API t ON u.US_IDUSUARIO_PK = t.US_IDUSUARIO_FK
+    WHERE t.TA_TOKEN = :x_api_token AND t.TA_ACTIVO = 'SI' AND u.RL_IDROL_FK = 1;
+    
+    IF V_IS_ADMIN = 0 THEN
+        :success := 'false';
+        :message := 'Solo un Administrador puede asignar negocios';
+        RETURN;
+    END IF;
+
+    UPDATE VMS_USUARIO_NEGOCIO 
+    SET UN_ACTIVO = 'NO' 
+    WHERE US_IDUSUARIO_FK = :usuario_id;
+    
+    IF :negocios_ids IS NOT NULL THEN
+        FOR r IN (
+            SELECT TRIM(REGEXP_SUBSTR(:negocios_ids, '[^,]+', 1, LEVEL)) as N_ID
+            FROM DUAL
+            CONNECT BY REGEXP_SUBSTR(:negocios_ids, '[^,]+', 1, LEVEL) IS NOT NULL
+        ) LOOP
+            IF r.N_ID IS NOT NULL THEN
+                UPDATE VMS_USUARIO_NEGOCIO
+                SET UN_ACTIVO = 'SI'
+                WHERE US_IDUSUARIO_FK = :usuario_id AND NG_IDNEGOCIO_FK = TO_NUMBER(r.N_ID);
+                
+                IF SQL%ROWCOUNT = 0 THEN
+                    INSERT INTO VMS_USUARIO_NEGOCIO (
+                        UN_ID_PK, US_IDUSUARIO_FK, NG_IDNEGOCIO_FK, UN_PERMISO, UN_ACTIVO
+                    ) VALUES (
+                        (SELECT NVL(MAX(UN_ID_PK), 0) + 1 FROM VMS_USUARIO_NEGOCIO),
+                        :usuario_id, TO_NUMBER(r.N_ID), 'LECTURA', 'SI'
+                    );
+                END IF;
+            END IF;
+        END LOOP;
+    END IF;
+
+    COMMIT;
+    :success := 'true';
+    :message := 'Negocios actualizados exitosamente';
+EXCEPTION
+    WHEN OTHERS THEN
+        ROLLBACK;
+        :success := 'false';
+        :message := 'Error: ' || SQLERRM;
+END;
+]');
+
+  ORDS.DEFINE_PARAMETER(
+      p_module_name        => 'vams/',
+      p_pattern            => 'usuarios/:usuario_id/negocios',
+      p_method             => 'POST',
+      p_name               => 'X-API-Token',
+      p_bind_variable_name => 'x_api_token',
+      p_source_type        => 'HEADER',
+      p_param_type         => 'STRING',
+      p_access_method      => 'IN',
+      p_comments           => NULL);
+
+  ORDS.DEFINE_PARAMETER(
+      p_module_name        => 'vams/',
+      p_pattern            => 'usuarios/:usuario_id/negocios',
+      p_method             => 'POST',
+      p_name               => 'success',
+      p_bind_variable_name => 'success',
+      p_source_type        => 'RESPONSE',
+      p_param_type         => 'STRING',
+      p_access_method      => 'OUT',
+      p_comments           => NULL);
+
+  ORDS.DEFINE_PARAMETER(
+      p_module_name        => 'vams/',
+      p_pattern            => 'usuarios/:usuario_id/negocios',
+      p_method             => 'POST',
+      p_name               => 'message',
+      p_bind_variable_name => 'message',
+      p_source_type        => 'RESPONSE',
+      p_param_type         => 'STRING',
+      p_access_method      => 'OUT',
+      p_comments           => NULL);
+
+  -- ===================================================
+  -- ENDPOINT PARA EDITAR NEGOCIO
+  -- ===================================================
+
+  ORDS.DEFINE_TEMPLATE(
+      p_module_name    => 'vams/',
+      p_pattern        => 'negocios/:negocio_id',
+      p_priority       => 0,
+      p_etag_type      => 'HASH',
+      p_etag_query     => NULL,
+      p_comments       => NULL);
+
+  ORDS.DEFINE_HANDLER(
+      p_module_name    => 'vams/',
+      p_pattern        => 'negocios/:negocio_id',
+      p_method         => 'PUT',
+      p_source_type    => ords.source_type_plsql,
+      p_items_per_page => 0,
+      p_mimes_allowed  => '',
+      p_comments       => NULL,
+      p_source         => q'[
+DECLARE
+    V_IS_ADMIN NUMBER;
+BEGIN
+    SELECT COUNT(*) INTO V_IS_ADMIN 
+    FROM VMS_USUARIO u JOIN VMS_TOKEN_API t ON u.US_IDUSUARIO_PK = t.US_IDUSUARIO_FK
+    WHERE t.TA_TOKEN = :x_api_token AND t.TA_ACTIVO = 'SI' AND u.RL_IDROL_FK = 1;
+    
+    IF V_IS_ADMIN = 0 THEN
+        :success := 'false';
+        :message := 'No tienes permiso para editar negocios (Solo Administradores)';
+        RETURN;
+    END IF;
+
+    UPDATE VMS_NEGOCIO
+    SET NG_NOMBRE = NVL(:nombre, NG_NOMBRE)
+    WHERE NG_IDNEGOCIO_PK = :negocio_id;
+    
+    IF SQL%ROWCOUNT = 0 THEN
+        :success := 'false';
+        :message := 'Negocio no encontrado';
+        RETURN;
+    END IF;
+
+    COMMIT;
+    
+    :success := 'true';
+    :message := 'Negocio actualizado exitosamente';
+
+EXCEPTION
+    WHEN OTHERS THEN
+        ROLLBACK;
+        :success := 'false';
+        :message := 'Error al actualizar negocio: ' || SUBSTR(SQLERRM, 1, 200);
+END;
+]');
+
+  ORDS.DEFINE_PARAMETER(
+      p_module_name        => 'vams/',
+      p_pattern            => 'negocios/:negocio_id',
+      p_method             => 'PUT',
+      p_name               => 'X-API-Token',
+      p_bind_variable_name => 'x_api_token',
+      p_source_type        => 'HEADER',
+      p_param_type         => 'STRING',
+      p_access_method      => 'IN',
+      p_comments           => NULL);
+
+  ORDS.DEFINE_PARAMETER(
+      p_module_name        => 'vams/',
+      p_pattern            => 'negocios/:negocio_id',
+      p_method             => 'PUT',
+      p_name               => 'success',
+      p_bind_variable_name => 'success',
+      p_source_type        => 'RESPONSE',
+      p_param_type         => 'STRING',
+      p_access_method      => 'OUT',
+      p_comments           => NULL);
+
+  ORDS.DEFINE_PARAMETER(
+      p_module_name        => 'vams/',
+      p_pattern            => 'negocios/:negocio_id',
+      p_method             => 'PUT',
+      p_name               => 'message',
+      p_bind_variable_name => 'message',
+      p_source_type        => 'RESPONSE',
+      p_param_type         => 'STRING',
+      p_access_method      => 'OUT',
+      p_comments           => NULL);
         
 COMMIT;
 

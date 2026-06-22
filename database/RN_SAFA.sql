@@ -50,12 +50,37 @@ CREATE TABLE VMS_USUARIO_PROYECTO (
 );
 
 -- ===================================================
--- 2) TABLAS DE PROYECTOS Y CATEGORÍAS
+-- 2) TABLAS DE NEGOCIOS, PROYECTOS Y CATEGORÍAS
 -- ===================================================
+
+-- ===== TABLA VMS_NEGOCIO =====
+CREATE TABLE VMS_NEGOCIO (
+    NG_IDNEGOCIO_PK     NUMBER          PRIMARY KEY,
+    NG_NOMBRE           VARCHAR2(100)   NOT NULL,
+    NG_ACTIVO           VARCHAR2(2)     DEFAULT 'SI' CHECK (NG_ACTIVO IN ('SI', 'NO')),
+    NG_CREADOPOR        VARCHAR2(100)   DEFAULT USER,
+    NG_CREADOEN         DATE            DEFAULT SYSDATE,
+    NG_MODIFICPOR       VARCHAR2(100),
+    NG_MODIFICEN        DATE
+);
+
+-- Tabla de relación usuario-negocio
+CREATE TABLE VMS_USUARIO_NEGOCIO (
+    UN_ID_PK            NUMBER          PRIMARY KEY,
+    US_IDUSUARIO_FK     NUMBER          NOT NULL,
+    NG_IDNEGOCIO_FK     NUMBER          NOT NULL,
+    UN_PERMISO          VARCHAR2(20)    DEFAULT 'LECTURA' NOT NULL, -- LECTURA, ESCRITURA, ADMIN
+    UN_ACTIVO           VARCHAR2(2)     DEFAULT 'SI' NOT NULL,
+    UN_CREADOPOR        VARCHAR2(100)   DEFAULT USER,
+    UN_CREADOEN         DATE            DEFAULT SYSDATE,
+    UN_MODIFICPOR       VARCHAR2(100),
+    UN_MODIFICEN        DATE
+);
 
 -- Tabla de proyectos (obras/terrenos)
 CREATE TABLE VMS_PROYECTO (
     PR_IDPROYECTO_PK    NUMBER          PRIMARY KEY,
+    NG_IDNEGOCIO_FK     NUMBER          NOT NULL, -- Relación con el Negocio
     PR_NOMBRE           VARCHAR2(200)   NOT NULL,
     PR_DESCRIPCION      VARCHAR2(500),
     PR_UBICACION        VARCHAR2(200),
@@ -87,6 +112,11 @@ CREATE TABLE VMS_CATEGORIA (
     CT_MODIFICEN        DATE
 );
 
+-- Índice único basado en funciones para prevenir categorías duplicadas con el mismo nombre en un mismo proyecto
+CREATE UNIQUE INDEX UQ_VMS_CATEGORIA_NOMBRE ON VMS_CATEGORIA (
+    PR_IDPROYECTO_FK,
+    LOWER(TRIM(CT_NOMBRE))
+);
 -- ===================================================
 -- 3) TABLAS DE ACTIVOS VISUALES Y METADATOS
 -- ===================================================
@@ -310,8 +340,7 @@ ALTER TABLE VMS_ESTADISTICA_ALMACENAMIENTO ADD CONSTRAINT CHK_VMS_EA_ACTIVO CHEC
 -- Insertar roles básicos del sistema
 INSERT INTO VMS_ROL (RL_IDROL_PK, RL_NOMBRE, RL_DESCRIPCION) VALUES (1, 'ADMINISTRADOR', 'Acceso completo al sistema, gestión de proyectos y usuarios');
 INSERT INTO VMS_ROL (RL_IDROL_PK, RL_NOMBRE, RL_DESCRIPCION) VALUES (2, 'GESTOR PROYECTO', 'Gestión completa de proyectos asignados, carga de archivos y comparaciones');
-INSERT INTO VMS_ROL (RL_IDROL_PK, RL_NOMBRE, RL_DESCRIPCION) VALUES (3, 'VISUALIZADOR', 'Solo lectura, visualización de proyectos y activos visuales');
-INSERT INTO VMS_ROL (RL_IDROL_PK, RL_NOMBRE, RL_DESCRIPCION) VALUES (4, 'CARGA ARCHIVOS', 'Permiso para cargar archivos en proyectos asignados');
+INSERT INTO VMS_ROL (RL_IDROL_PK, RL_NOMBRE, RL_DESCRIPCION) VALUES (3, 'SOLO LECTURA', 'Solo lectura, visualización de proyectos y activos visuales');
 
 -- Insertar categorías predefinidas (se asociarán a proyectos específicos)
 -- Nota: Estas categorías se crearán dinámicamente por proyecto, pero aquí están los tipos base
@@ -563,6 +592,7 @@ COMMIT;
 CREATE OR REPLACE VIEW V_PROYECTO_RESUMEN AS
 SELECT 
     p.PR_IDPROYECTO_PK,
+    p.NG_IDNEGOCIO_FK,
     p.PR_NOMBRE,
     p.PR_UBICACION,
     p.PR_FOTO_PORTADA_URL,
