@@ -126,17 +126,17 @@ export async function DELETE(
     }
 
     const cleanApiUrl = apiUrl.endsWith('/') ? apiUrl.slice(0, -1) : apiUrl
-    const endpoint = `${cleanApiUrl}/proyectos/${projectId}`
+    const endpoint = `${cleanApiUrl}/proyectos/${projectId}/eliminar`
 
     console.log('DELETE /api/projects/[id] - Llamando a ORDS:', {
       endpoint,
-      method: 'DELETE',
+      method: 'POST',
       headers,
       projectId
     })
 
     const response = await fetch(endpoint, {
-      method: "DELETE",
+      method: "POST",
       headers,
     })
 

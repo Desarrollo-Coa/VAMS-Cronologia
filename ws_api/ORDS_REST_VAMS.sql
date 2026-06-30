@@ -1574,6 +1574,126 @@ END;');
       p_comments           => NULL);
 
   -- ===================================================
+  -- ENDPOINT POST PARA ELIMINAR PROYECTOS (BYPASS WAF)
+  -- ===================================================
+
+  ORDS.DEFINE_TEMPLATE(
+      p_module_name    => 'vams/',
+      p_pattern        => 'proyectos/:proyecto_id/eliminar',
+      p_priority       => 0,
+      p_etag_type      => 'HASH',
+      p_etag_query     => NULL,
+      p_comments       => NULL);
+
+  ORDS.DEFINE_HANDLER(
+      p_module_name    => 'vams/',
+      p_pattern        => 'proyectos/:proyecto_id/eliminar',
+      p_method         => 'POST',
+      p_source_type    => 'plsql/block',
+      p_mimes_allowed  => NULL,
+      p_comments       => NULL,
+      p_source         => 
+'DECLARE
+  V_PROYECTO_ID NUMBER;
+  V_CATEGORIAS_COUNT NUMBER;
+  V_ACTIVOS_COUNT NUMBER;
+  V_USER_ID NUMBER;
+  V_TOKEN VARCHAR2(32);
+BEGIN
+    -- Obtener proyecto_id del URI
+    V_PROYECTO_ID := :proyecto_id;
+    
+    -- Obtener token del header
+    V_TOKEN := :x_api_token;
+    
+    -- Validar si tiene activos visuales (fotos) activos
+    SELECT COUNT(*) INTO V_ACTIVOS_COUNT
+    FROM VMS_ACTIVO_VISUAL
+    WHERE PR_IDPROYECTO_FK = V_PROYECTO_ID
+      AND AV_ACTIVO = ''SI'';
+
+    -- Si tiene activos visuales (fotos) activas, no permitir eliminación
+    IF V_ACTIVOS_COUNT > 0 THEN
+        :success := ''false'';
+        :message := ''No se puede eliminar el proyecto porque tiene '' || V_ACTIVOS_COUNT || '' foto(s) asociada(s). Elimine primero las fotos.'';
+        RETURN;
+    END IF;
+    
+    -- Realizar soft delete en cascada de las categorías
+    UPDATE VMS_CATEGORIA
+    SET CT_ACTIVO = ''NO''
+    WHERE PR_IDPROYECTO_FK = V_PROYECTO_ID
+      AND CT_ACTIVO = ''SI'';
+    
+    -- Marcar proyecto como inactivo (soft delete)
+    UPDATE VMS_PROYECTO
+    SET PR_ACTIVO = ''NO''
+    WHERE PR_IDPROYECTO_PK = V_PROYECTO_ID;
+    
+    -- Verificar que se actualizó al menos una fila
+    IF SQL%ROWCOUNT = 0 THEN
+        :success := ''false'';
+        :message := ''Proyecto no encontrado'';
+        RETURN;
+    END IF;
+    
+    COMMIT;
+    
+    :success := ''true'';
+    :message := ''Proyecto eliminado exitosamente'';
+
+EXCEPTION
+    WHEN OTHERS THEN
+        ROLLBACK;
+        :success := ''false'';
+        :message := ''Error al eliminar proyecto: '' || SUBSTR(SQLERRM, 1, 200);
+END;');
+
+  ORDS.DEFINE_PARAMETER(
+      p_module_name        => 'vams/',
+      p_pattern            => 'proyectos/:proyecto_id/eliminar',
+      p_method             => 'POST',
+      p_name               => 'X-API-Token',
+      p_bind_variable_name => 'x_api_token',
+      p_source_type        => 'HEADER',
+      p_param_type         => 'STRING',
+      p_access_method      => 'IN',
+      p_comments           => NULL);
+
+  ORDS.DEFINE_PARAMETER(
+      p_module_name        => 'vams/',
+      p_pattern            => 'proyectos/:proyecto_id/eliminar',
+      p_method             => 'POST',
+      p_name               => 'proyecto_id',
+      p_bind_variable_name => 'proyecto_id',
+      p_source_type        => 'URI',
+      p_param_type         => 'INT',
+      p_access_method      => 'IN',
+      p_comments           => NULL);
+
+  ORDS.DEFINE_PARAMETER(
+      p_module_name        => 'vams/',
+      p_pattern            => 'proyectos/:proyecto_id/eliminar',
+      p_method             => 'POST',
+      p_name               => 'success',
+      p_bind_variable_name => 'success',
+      p_source_type        => 'RESPONSE',
+      p_param_type         => 'STRING',
+      p_access_method      => 'OUT',
+      p_comments           => NULL);
+
+  ORDS.DEFINE_PARAMETER(
+      p_module_name        => 'vams/',
+      p_pattern            => 'proyectos/:proyecto_id/eliminar',
+      p_method             => 'POST',
+      p_name               => 'message',
+      p_bind_variable_name => 'message',
+      p_source_type        => 'RESPONSE',
+      p_param_type         => 'STRING',
+      p_access_method      => 'OUT',
+      p_comments           => NULL);
+
+  -- ===================================================
   -- ENDPOINT PUT Y DELETE PARA CATEGORÍAS INDIVIDUALES
   -- ===================================================
 

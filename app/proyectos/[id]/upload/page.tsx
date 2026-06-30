@@ -36,7 +36,7 @@ export default function UploadPhotosPage() {
   const [error, setError] = useState<string | null>(null)
   const [proyecto, setProyecto] = useState<any>(null)
   const [categoriaSeleccionada, setCategoriaSeleccionada] = useState<number | null>(null)
-  const [showProtocolChecklist, setShowProtocolChecklist] = useState(true)
+  const [showProtocolChecklist, setShowProtocolChecklist] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -310,10 +310,8 @@ export default function UploadPhotosPage() {
     }
   }
 
-  const handleProtocolCheck = (isChecked: boolean) => {
-    if (isChecked) {
-      setShowProtocolChecklist(false)
-    }
+  const handleProtocolCheck = () => {
+    setShowProtocolChecklist(false)
   }
 
   return (
@@ -345,11 +343,11 @@ export default function UploadPhotosPage() {
                 </div>
               )}
 
-              {showProtocolChecklist && (
-                <div className="mb-6">
-                  <DroneProtocolChecklist onComplete={handleProtocolCheck} />
-                </div>
-              )}
+              <DroneProtocolChecklist 
+                open={showProtocolChecklist} 
+                onOpenChange={setShowProtocolChecklist}
+                onContinue={handleProtocolCheck} 
+              />
 
               {!showProtocolChecklist && (
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
